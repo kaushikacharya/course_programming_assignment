@@ -1,0 +1,58 @@
+---
+title: "chapter_7_ka"
+output: html_document
+---
+
+Page 291: Chapter 7
+As an alternative to using hypothesis tests and ANOVA, we could choose the polynomial degree using cross-validation.
+
+```{r}
+require(ISLR)
+attach(Wage)
+```
+
+TBD: 1) Plot Wage against each of the variables.
+     2) Confirm that when we write the formula wage~. this includes all variable except wage.
+     
+Plot wage vs each variable one by one     
+```{r}
+plot(wage~., data=Wage)
+```
+
+Exercise:6a
+Now do the cross-validation using 10-folds.
+```{r}
+set.seed(11)
+K = 10
+folds = sample(rep(1:K, length=nrow(Wage)))
+table(folds)
+cv.errors = matrix(NA, K, 5)
+for (k in 1:10){
+  fit.1 = lm(wage~age, data=Wage[folds != k,])
+  fit.2 = lm(wage~poly(age,2), data=Wage[folds != k,])
+  fit.3 = lm(wage~poly(age,3), data=Wage[folds != k,])
+  fit.4 = lm(wage~poly(age,4), data=Wage[folds != k,])
+  fit.5 = lm(wage~poly(age,5), data=Wage[folds != k,])
+  
+  for (i in 1:5){
+    if (i == 1){
+      fit = fit.1
+    } else if (i == 2){
+      fit = fit.2
+    } else if (i == 3){
+      fit = fit.3
+    } else if (i == 4){
+      fit = fit.4
+    } else {
+      fit = fit.5
+    }
+    
+    pred = predict(fit, data=Wage[folds == k,])
+    cv.errors[k,i] = mean((wage[folds == k] - pred)^2)
+  }
+}
+
+# http://stackoverflow.com/questions/21807987/calculate-the-mean-for-each-column-of-a-matrix-in-r
+rmse.cv = sqrt(apply(cv.errors, 2, mean))
+plot(rmse.cv, pch=19, type="b")
+```

@@ -1,0 +1,75 @@
+chapter_3_ka
+============
+
+```{r}
+library(MASS)
+library(ISLR)
+```
+
+Analyzing Boston data
+```{r}
+attach(Boston)
+```
+
+```{r}
+# non-linear plot
+plot(lstat, medv)
+lm.fit = lm(medv~lstat, data=Boston)
+coef(lm.fit)
+abline(lm.fit)
+```
+
+```{r}
+summary(lm.fit)
+names(lm.fit)
+```
+
+QUestion 8 of ISLR book
+```{r}
+fix(Auto)
+plot(horsepower, mpg)
+lm.fitAuto = lm(mpg~horsepower, data=Auto)
+abline(lm.fitAuto)
+summary(lm.fitAuto)
+coef(lm.fitAuto)
+plot(hatvalues(lm.fitAuto))
+plot(predict(lm.fitAuto), residuals(lm.fitAuto))
+plot(predict(lm.fitAuto), rstudent(lm.fitAuto))
+```
+
+Usage of leverage statistics
+http://stackoverflow.com/questions/9476475/how-to-produce-leverage-stats
+
+https://dzone.com/articles/learn-r-how-create-data-frames
+Question 9 of ISLR book
+```{r}
+pairs(Auto)
+# creating new data frame from Auto be removing the qualitative predictor
+new_df = Auto[,1:8]
+cor(new_df)
+# multiple linear regression
+lm.fitAutoMultipleRegression = lm(mpg~.-name, data=Auto)
+summary(lm.fitAutoMultipleRegression)
+# identify outliers
+plot(predict(lm.fitAutoMultipleRegression), residuals(lm.fitAutoMultipleRegression))
+plot(hatvalues(lm.fitAutoMultipleRegression))
+summary(lm(mpg~log(horsepower), data=Auto))
+```
+
+Question 10 of ISLR book
+```{r}
+names(Carseats)
+summary(Carseats)
+summary(lm(Sales~Price+Urban+US, data=Carseats))
+summary(lm(Sales~Price+US, data=Carseats))
+confint(lm(Sales~Price+US, data=Carseats))
+```
+
+Question 11 of ISLR book
+```{r}
+set.seed(1)
+x = rnorm(100)
+y = 2*x + rnorm(100)
+summary(lm(y~x+0))
+summary(lm(x~y+0))
+```

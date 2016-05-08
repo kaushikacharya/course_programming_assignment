@@ -1,0 +1,87 @@
+chapter_6_ka
+============
+
+Question #8
+-----------
+```{r}
+n = 100
+X = rnorm(n)
+noise_vec = rnorm(n)
+```
+
+Create response vector Y
+```{r}
+# user-defined values for coefficients
+beta0 = 1
+beta1 = 2
+beta2 = 3
+beta3 = 4
+
+Y = c()
+for (i in 1:n){
+  cur_response = beta0 + beta1*X[i] + beta2*(X[i]^2) + beta3*(X[i]^3) + noise_vec[i]
+  Y = c(Y, cur_response)
+}
+
+plot(X,Y,pch=19)
+```
+
+Create data frame
+```{r}
+df = data.frame(Y,X,X^2,X^3,X^4,X^5,X^6,X^7,X^8,X^9,X^10)
+```
+
+```{r}
+library(leaps)
+regfit.full = regsubsets(Y~., data=df, nvmax = 10)
+reg.summary = summary(regfit.full)
+names(reg.summary)
+plot(reg.summary$cp, xlab="Number of variables", ylab="Cp")
+which.min(reg.summary$cp)
+points(3, reg.summary$cp[3], col="red", pch=20)
+# plot for regsubsets object
+plot(regfit.full, scale = "Cp")
+coef(regfit.full, 10)
+# BIC
+plot(reg.summary$bic, xlab="Number of variables", ylab="BIC")
+which.min(reg.summary$bic)
+points(3, reg.summary$bic[3], col="red", pch=20)
+# Adjusted R^2
+plot(reg.summary$adjr2, xlab="Number of variables", ylab="Adjusted R^2")
+which.max(reg.summary$adjr2)
+points(3, reg.summary$adjr2[3], col="red", pch=20)
+```
+
+Forward stepwise selection
+```{r}
+regfit.fwd = regsubsets(Y~., data=df, nvmax=10, method="forward")
+reg.fwd.summary = summary(regfit.fwd)
+reg.fwd.summary
+which.min(reg.fwd.summary$cp)
+coef(regfit.fwd, 10)
+```
+
+Backward stepwise selection
+```{r}
+regfit.bkwd = regsubsets(Y~., data=df, nvmax = 10, method = "backward")
+reg.bkwd.summary = summary(regfit.bkwd)
+reg.bkwd.summary
+which.min(reg.bkwd.summary$cp)
+coef(regfit.bkwd, 10)
+```
+
+Using validation set for Lasso
+```{r}
+library(glmnet)
+train = sample(1:n, floor(0.75*n), replace = FALSE)
+x = model.matrix(Y~., data=df)
+y = df$Y
+lasso.tr = glmnet(x[train,], y[train])
+coef(lasso.tr, 3)
+pred = predict(lasso.tr, x[-train,])
+dim(pred)
+rmse = sqrt(apply((y[-train]-pred)^2, 2, mean))
+plot(log(lasso.tr$lambda), rmse, xlab="Log Lambda", type="b")
+lam.best = lasso.tr$lambda[order(rmse)[1]]
+coef(lasso.tr, s=lam.best)
+```

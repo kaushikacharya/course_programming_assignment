@@ -1,0 +1,24 @@
+10_R
+========
+```{r}
+load("F:\\ReadingMaterial\\video_lectures\\Statistical_Learning_Hastie_Tibshirani\\Chapter10_Unsupervised_Learning\\10.R.RData")
+```
+
+```{r}
+x.combined = rbind(x, x.test)
+apply(x.combined, 2, var)
+```
+
+Not required
+```{r}
+sum(apply(x.combined, 2, var))
+```
+
+```{r}
+pca.out = prcomp(x.combined, scale=TRUE)
+vars = pca.out$sdev^2
+sum(vars[1:5])/sum(vars)
+
+
+
+```

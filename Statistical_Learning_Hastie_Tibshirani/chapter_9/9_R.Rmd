@@ -1,0 +1,166 @@
+9_R
+============
+Discussion thread: https://lagunita.stanford.edu/courses/HumanitiesSciences/StatLearning/Winter2016/discussion/forum/i4x-HumanitiesSciences-StatLearning-course-Winter2016_homework/threads/56d2ce3a03ff22fdc900005b
+
+user: dalupus suggested 10k iterations with 100 new training and test data for each iteration.
+
+Column renaming:
+http://www.cookbook-r.com/Manipulating_data/Renaming_columns_in_a_data_frame/
+```{r}
+library(e1071)
+set.seed(10111)
+```
+
+```{r}
+make.feature_matrix_using_standard_normal_distribution = function(n_sample, n_feature){
+  # create each column independently using normal distribution
+  for (i in 1:n_feature){
+    if (i == 1){
+      x = matrix(rnorm(n_sample*1), n_sample, 1)
+    }
+    else {
+      x_col = matrix(rnorm(n_sample*1), n_sample, 1)
+      x = cbind(x, x_col)
+    }
+  }
+  
+  return(x)
+}
+```
+
+```{r}
+make.train_set = function(n_sample, n_feature, class_1_label, class_2_label, class_1_mean_vec, class_2_mean_vec){
+  # x = matrix(rnorm(n_sample*n_feature), n_sample, n_feature)
+  x = make.feature_matrix_using_standard_normal_distribution(n_sample, n_feature)
+  y = rep(c(class_1_label, class_2_label), c(n_sample/2, n_sample/2))
+  # shift mean
+  for (feature_i in 1:dim(x)[2]){
+    x[y == class_1_label,feature_i] = x[y == class_1_label,feature_i] + class_1_mean_vec[feature_i]
+    x[y == class_2_label,feature_i] = x[y == class_2_label,feature_i] + class_2_mean_vec[feature_i]
+  }
+  
+  # now create data frame
+  dat = data.frame(x, y=as.factor(y))
+  return(dat)
+}
+```
+
+```{r}
+make.test_set = function(n_sample, n_feature, class_1_label, class_2_label, class_1_mean_vec, class_2_mean_vec){
+  # xtest = matrix(rnorm(n_sample*n_feature), n_sample, n_feature)
+  xtest = make.feature_matrix_using_standard_normal_distribution(n_sample, n_feature)
+  ytest = sample(c(class_1_label,class_2_label), n_sample, rep=TRUE)
+  # shift mean
+  for (feature_i in 1:dim(x)[2]){
+    xtest[ytest == class_1_label,feature_i] = xtest[ytest == class_1_label,feature_i] + class_1_mean_vec[feature_i]
+    xtest[ytest == class_2_label,feature_i] = xtest[ytest == class_2_label,feature_i] + class_2_mean_vec[feature_i]
+  }
+  # now create data frame
+  dat = data.frame(x=xtest, y=as.factor(ytest))
+  return(dat)
+}
+```
+
+```{r}
+error.measure = function(predict, truth){
+  true_positive = 0
+  false_positive = 0
+  true_negative = 0
+  false_negative = 0
+  
+  for (i in 1:length(predict)){
+    # assuming classes are [-1,1]
+    if (predict[i] == truth[i]){
+      if (truth[i] == 1){
+        true_positive = true_positive + 1
+      }
+      else {
+        true_negative = true_negative + 1
+      }
+    }
+    else {
+      if (predict[i] == 1){
+        false_positive = false_positive + 1
+      }
+      else {
+        false_negative = false_negative + 1
+      }
+    }
+  }
+  
+  error_fraction = (false_positive + false_negative)/(true_positive + true_negative + false_positive + false_negative)
+  return (error_fraction)
+}
+```
+
+```{r}
+  n_iteration = 10000
+  n_sample = 100
+  n_feature = 10
+  class_1_label = -1
+  class_2_label = 1
+  class_1_mean_vec = c(0,0,0,0,0,0,0,0,0,0)
+  class_2_mean_vec = c(1,1,1,1,1,0,0,0,0,0)
+  use_LR = TRUE
+
+  error_fraction_vec = c()
+  for (iter_i in 1:n_iteration){
+    if (iter_i %% 100 == 99){
+      cat("iter_i: ", iter_i, "\n")
+    }
+    train_dat = make.train_set(n_sample, n_feature, class_1_label, class_2_label, class_1_mean_vec, class_2_mean_vec)
+    test_dat = make.test_set(n_sample, n_feature, class_1_label, class_2_label, class_1_mean_vec, class_2_mean_vec)
+    if (use_LR){
+      train_model = glm(y~., data=train_dat, family=binomial) # 9.R.3
+    } else {
+      # train_model = svm(y~., data=train_dat) # 9.R.1
+      train_model = svm(y~., data=train_dat, kernel="linear") # 9.R.2
+    }
+    
+    # glm.fit = glm(y~., data=train_dat, family = binomial)
+    # glm.probs = predict(glm.fit, data=test_dat, type="response")
+    # glm.pred = ifelse(glm.probs>0.5, class_2_label, class_1_label)
+    
+    # rename columns of test_dat
+    names(test_dat) = sub("^x.", "X", names(test_dat))
+    if (use_LR) {
+      glm.probs = predict(train_model, newdata=test_dat, type="response") # test_dat
+      ypred = ifelse(glm.probs>0.5, class_2_label, class_1_label)      
+    } else {
+      ypred = predict(train_model, test_dat) # test_dat
+    }
+    
+    error_fraction = error.measure(predict=ypred, truth=test_dat$y) # test_dat
+    error_fraction_vec = c(error_fraction_vec, error_fraction)
+  }
+
+  cat("mean(error frac): ", mean(error_fraction_vec), " std(error frac): ", sd(error_fraction_vec), "\n")
+  hist(error_fraction_vec)
+```
+
+```{r}
+# initial attempt - NO more required
+x = matrix(rnorm(100*10),100,10)
+y = rep(c(-1,1), c(50,50))
+# for the class y=1, change the mean
+# x[y==1,1:5] = x[y==1,1:5] + 1
+x[y==1,] = x[y==1,] + c(1,1,1,1,1,0,0,0,0,0)
+dat = data.frame(x, y=as.factor(y))
+svmfit = svm(y~., data=dat)
+summary(svmfit)
+
+xtest = matrix(rnorm(100*10),100,10)
+ytest = sample(c(-1,1), 100, rep=TRUE)
+xtest[ytest==1,1:5] = xtest[ytest==1,1:5] + 1
+testdat = data.frame(x=xtest, y=as.factor(ytest))
+
+names(dat)
+names(testdat)
+
+# rename columns of testdat
+names(testdat) = sub("^x.", "X", names(testdat))
+ypred = predict(svmfit, testdat)
+table(predict=ypred, truth=testdat$y)
+error_fraction = error.measure(predict=ypred, truth=testdat$y)
+cat("error_fraction: ", error_fraction,"\n")
+```

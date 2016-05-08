@@ -1,0 +1,78 @@
+chapter_4_ka
+============
+
+```{r}
+library(ISLR)
+library(class)
+```
+
+Question #10
+```{r}
+names(Weekly)
+summary(Weekly)
+pairs(Weekly)
+plot(Weekly$Year, Weekly$Volume)
+cor(Weekly[,-9])
+```
+
+```{r}
+summary(glm(Direction~Lag1+Lag2+Lag3+Lag4+Lag5+Volume, data=Weekly, family=binomial))
+glm.fit = glm(Direction~Lag1+Lag2+Lag3+Lag4+Lag5+Volume, data=Weekly, family=binomial)
+glm.probs = predict(glm.fit, type="response")
+glm.pred = rep("Down", dim(Weekly)[1])
+contrasts(Weekly$Direction)
+glm.pred[glm.probs > 0.5] = "Up"
+table(glm.pred, Weekly$Direction)
+mean(glm.pred == Weekly$Direction)
+
+http://stackoverflow.com/questions/11838278/plot-with-conditional-colors-based-on-values-in-r?rq=1
+```{r}
+plot(Weekly$Volume, Weekly$Lag2, col=ifelse(Weekly$Direction == 'Up', 'blue', 'red'), pch=19)
+```
+
+Now considering train data from the period: 1990 to 2008
+And consider the predictor which has been significant.
+```{r}
+train = (Weekly$Year <= 2008)
+```
+
+Logistic Regression
+```{r}
+train.model.LR = glm(Direction~Lag2, data=Weekly, family=binomial, subset=train)
+LR.probs = predict(train.model.LR, newdata = Weekly[!train,], type="response")
+LR.pred = rep("Down", length(LR.probs))
+LR.pred[LR.probs > 0.5] = "Up"
+table(LR.pred, Weekly[!train,]$Direction)
+mean(LR.pred == Weekly[!train,]$Direction)
+```
+
+Linear Discriminant Analysis
+```{r}
+train.model.LDA = lda(Direction~Lag2, data=Weekly, subset=train)
+summary(train.model.LDA)
+LDA.pred = predict(train.model.LDA, newdata=Weekly[!train,])
+names(LDA.pred)
+LDA.class = LDA.pred$class
+table(LDA.class, Weekly[!train,]$Direction)
+mean(LDA.class == Weekly[!train,]$Direction)
+```
+
+Quadratic Discriminant Analysis
+```{r}
+train.model.QDA = qda(Direction~Lag2, data=Weekly, subset=train)
+QDA.pred = predict(train.model.QDA, newdata=Weekly[!train,])
+names(QDA.pred)
+QDA.class = QDA.pred$class
+table(QDA.class, Weekly[!train,]$Direction)
+mean(QDA.class == Weekly[!train,]$Direction)
+```
+
+K-Nearest Neighbor
+http://stackoverflow.com/questions/19396947/how-can-i-resolve-the-following-dimension-mismatch-with-rs-k-nearest-neighbors
+```{r}
+train.X = Weekly[train,]$Lag2
+test.X = Weekly[!train,]$Lag2
+knn.pred = knn(data.frame(train.X), data.frame(test.X), train.Direction, k=1)
+table(knn.pred, Weekly[!train,]$Direction)
+mean(knn.pred == Weekly[!train,]$Direction)
+```
