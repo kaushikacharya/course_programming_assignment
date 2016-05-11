@@ -1,0 +1,202 @@
+Question #8:
+-----------
+lm.fitAuto = lm(mpg~horsepower, data=Auto)
+F-statistic: 599.7
+p-value: < 2.2e-16
+
+(a)
+    (i)
+    Small p-value indicates that it is unlikely to observe such a substantial association between the predictor(horsepower) and
+    the response(mpg) by chance. We can reject null hypothesis that slope is zero.
+    
+    (ii) Small p-value signifies strong relationship between predictor and response.
+
+    (iii) Relationship is negative.
+        > coef(lm.fitAuto)
+        (Intercept)  horsepower 
+         39.9358610  -0.1578447
+         
+(b)
+    plot(horsepower, mpg)
+    lm.fitAuto = lm(mpg~horsepower, data=Auto)
+    abline(lm.fitAuto)
+    
+(c) Shows non-linearity
+    > plot(hatvalues(lm.fitAuto))
+    > plot(predict(lm.fitAuto), residuals(lm.fitAuto))
+    
+    
+Question #9:
+------------
+(a) pairs(Auto)
+
+(b) 
+    new_df = Auto[,1:8]
+    cor(new_df)
+    
+(c) 
+    lm.fitAutoMultipleRegression = lm(mpg~.-name, data=Auto)
+    summary(lm.fitAutoMultipleRegression)
+    
+    Call:
+    lm(formula = mpg ~ . - name, data = Auto)
+
+    Residuals:
+        Min      1Q  Median      3Q     Max 
+    -9.5903 -2.1565 -0.1169  1.8690 13.0604 
+
+    Coefficients:
+                   Estimate Std. Error t value Pr(>|t|)    
+    (Intercept)  -17.218435   4.644294  -3.707  0.00024 ***
+    cylinders     -0.493376   0.323282  -1.526  0.12780    
+    displacement   0.019896   0.007515   2.647  0.00844 ** 
+    horsepower    -0.016951   0.013787  -1.230  0.21963    
+    weight        -0.006474   0.000652  -9.929  < 2e-16 ***
+    acceleration   0.080576   0.098845   0.815  0.41548    
+    year           0.750773   0.050973  14.729  < 2e-16 ***
+    origin         1.426141   0.278136   5.127 4.67e-07 ***
+    ---
+    Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+    Residual standard error: 3.328 on 384 degrees of freedom
+    Multiple R-squared:  0.8215,	Adjusted R-squared:  0.8182 
+    F-statistic: 252.4 on 7 and 384 DF,  p-value: < 2.2e-16
+    
+    (i) High F-statistic of 252.4 suggests that we can reject the null hypothesis that there is no relationship between
+        the response and predictors.
+        
+        i.e. null hypothesis: beta1 = beta2 = ....beta7 = 0
+        
+    (ii) displacement, weight, year and origin have statistically significant relationship to the response.
+    
+    (iii) slope=0.750773 suggest mpg increases with year.
+    
+(d) plot(hatvalues(lm.fitAutoMultipleRegression))
+    suggests few outliers.
+    This is based on the suggestion provided here: http://stackoverflow.com/questions/9476475/how-to-produce-leverage-stats
+    i.e. values which have > 2-3 time of mean of hatvalues (2 for large sample size,  3 for small sample size)
+    
+(e) NU: Should we try for each possible combination manually or through program(How to do that) ?
+
+(f) summary(lm(mpg~horsepower, data=Auto))
+        Adjusted R-squared:  0.6049 
+        
+    summary(lm(mpg~log(horsepower), data=Auto))
+        Adjusted R-squared:  0.6675
+        
+    R^2 shows log model fits better.
+    
+Question #10:
+------------
+(a) > summary(lm(Sales~Price+Urban+US, data=Carseats))
+
+        Call:
+        lm(formula = Sales ~ Price + Urban + US, data = Carseats)
+
+        Residuals:
+            Min      1Q  Median      3Q     Max 
+        -6.9206 -1.6220 -0.0564  1.5786  7.0581 
+
+        Coefficients:
+                     Estimate Std. Error t value Pr(>|t|)    
+        (Intercept) 13.043469   0.651012  20.036  < 2e-16 ***
+        Price       -0.054459   0.005242 -10.389  < 2e-16 ***
+        UrbanYes    -0.021916   0.271650  -0.081    0.936    
+        USYes        1.200573   0.259042   4.635 4.86e-06 ***
+        ---
+        Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+        Residual standard error: 2.472 on 396 degrees of freedom
+        Multiple R-squared:  0.2393,	Adjusted R-squared:  0.2335 
+        F-statistic: 41.52 on 3 and 396 DF,  p-value: < 2.2e-16    
+        
+(b) Sales decreases with price.
+    For a price, non-urban in US has the highest sales.
+    All the 4 combination of Urban, US produce parallel lines in Sales vs Price.
+    
+(c) beta1 = -0.054459, beta2 = -0.021916, beta3 = 1.200573
+
+    For non-Urban, US:
+        Sales = (13.043469+beta3) + beta1*Price
+        
+    similarly for others.
+    
+(d) Null hypothesis: slopes=0, are rejected for the predictors Price, US.
+
+(e) > summary(lm(Sales~Price+US, data=Carseats))
+
+        Call:
+        lm(formula = Sales ~ Price + US, data = Carseats)
+
+        Residuals:
+            Min      1Q  Median      3Q     Max 
+        -6.9269 -1.6286 -0.0574  1.5766  7.0515 
+
+        Coefficients:
+                    Estimate Std. Error t value Pr(>|t|)    
+        (Intercept) 13.03079    0.63098  20.652  < 2e-16 ***
+        Price       -0.05448    0.00523 -10.416  < 2e-16 ***
+        USYes        1.19964    0.25846   4.641 4.71e-06 ***
+        ---
+        Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+        Residual standard error: 2.469 on 397 degrees of freedom
+        Multiple R-squared:  0.2393,	Adjusted R-squared:  0.2354 
+        F-statistic: 62.43 on 2 and 397 DF,  p-value: < 2.2e-16
+        
+        
+(f)     Adjusted R-squared of model (a): 0.2335
+                                    (e): 0.2354
+    
+(g) > confint(lm(Sales~Price+US, data=Carseats))
+                          2.5 %      97.5 %
+        (Intercept) 11.79032020 14.27126531
+        Price       -0.06475984 -0.04419543
+        USYes        0.69151957  1.70776632
+        
+(h) plot(hatvalues(lm(Sales~Price+US, data=Carseats)))
+    Around 3 high leverage points are present.
+    
+Question #11:
+-------------
+(a) > summary(lm(y~x+0))
+
+        Call:
+        lm(formula = y ~ x + 0)
+
+        Residuals:
+            Min      1Q  Median      3Q     Max 
+        -1.9154 -0.6472 -0.1771  0.5056  2.3109 
+
+        Coefficients:
+          Estimate Std. Error t value Pr(>|t|)    
+        x   1.9939     0.1065   18.73   <2e-16 ***
+        ---
+        Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+        Residual standard error: 0.9586 on 99 degrees of freedom
+        Multiple R-squared:  0.7798,	Adjusted R-squared:  0.7776 
+        F-statistic: 350.7 on 1 and 99 DF,  p-value: < 2.2e-16
+        
+    Based on low p-value we can reject the null hypothesis(i.e. response y is not depended on predictor x).
+    
+(b) > summary(lm(x~y+0))
+
+        Call:
+        lm(formula = x ~ y + 0)
+
+        Residuals:
+            Min      1Q  Median      3Q     Max 
+        -0.8699 -0.2368  0.1030  0.2858  0.8938 
+
+        Coefficients:
+          Estimate Std. Error t value Pr(>|t|)    
+        y  0.39111    0.02089   18.73   <2e-16 ***
+        ---
+        Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+        Residual standard error: 0.4246 on 99 degrees of freedom
+        Multiple R-squared:  0.7798,	Adjusted R-squared:  0.7776 
+        F-statistic: 350.7 on 1 and 99 DF,  p-value: < 2.2e-16
+        
+    Here also we are rejecting the null hypothesis that beta1=0

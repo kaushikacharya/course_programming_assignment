@@ -1,0 +1,70 @@
+Question #8:
+------------
+(a) n = 100
+    X = rnorm(n)
+    noise_vec = rnorm(n)
+    
+(b) # user-defined values for coefficients
+    beta0 = 1
+    beta1 = 2
+    beta2 = 3
+    beta3 = 4
+
+    Y = c()
+    for (i in 1:n){
+      cur_response = beta0 + beta1*X[i] + beta2*(X[i]^2) + beta3*(X[i]^3) + noise_vec[i]
+      Y = c(Y, cur_response)
+    }
+
+    plot(X,Y,pch=19)
+    
+(c) library(leaps)
+    df = data.frame(Y,X,X^2,X^3,X^4,X^5,X^6,X^7,X^8,X^9,X^10)
+    regfit.full = regsubsets(Y~., data=df, nvmax = 10)
+    reg.summary = summary(regfit.full)
+    names(reg.summary)
+    plot(reg.summary$cp, xlab="Number of variables", ylab="Cp")
+    which.min(reg.summary$cp)
+    points(3, reg.summary$cp[3], col="red", pch=20)
+    # plot for regsubsets object
+    plot(regfit.full, scale = "Cp")
+    > coef(regfit.full, 10)
+     (Intercept)            X          X.2          X.3          X.4          X.5 
+     1.012482217  2.635950274  3.372973164  2.599380933 -0.230588808  0.874384869 
+             X.6          X.7          X.8          X.9         X.10 
+    -0.080621607 -0.198021674  0.042587171  0.014918026 -0.004174071 
+    # BIC
+    plot(reg.summary$bic, xlab="Number of variables", ylab="BIC")
+    which.min(reg.summary$bic)
+    points(3, reg.summary$bic[3], col="red", pch=20)
+    # Adjusted R^2
+    plot(reg.summary$adjr2, xlab="Number of variables", ylab="Adjusted R^2")
+    which.max(reg.summary$adjr2)
+    points(3, reg.summary$adjr2[3], col="red", pch=20)
+    
+(d) # Forward stepwise subset selection
+    regfit.fwd = regsubsets(Y~., data=df, nvmax=10, method="forward")
+    reg.fwd.summary = summary(regfit.fwd)
+    > which.min(reg.fwd.summary$cp)
+    [1] 3
+    > coef(regfit.fwd, 10)
+     (Intercept)            X          X.2          X.3          X.4          X.5 
+     1.012482217  2.635950274  3.372973164  2.599380933 -0.230588808  0.874384869 
+             X.6          X.7          X.8          X.9         X.10 
+    -0.080621607 -0.198021674  0.042587171  0.014918026 -0.004174071 
+    
+    # Backward stepwise subset selection
+    regfit.bkwd = regsubsets(Y~., data=df, nvmax = 10, method = "backward")
+    reg.bkwd.summary = summary(regfit.bkwd)
+    > which.min(reg.bkwd.summary$cp)
+    [1] 3
+    > coef(regfit.bkwd, 10)
+     (Intercept)            X          X.2          X.3          X.4          X.5 
+     1.012482217  2.635950274  3.372973164  2.599380933 -0.230588808  0.874384869 
+             X.6          X.7          X.8          X.9         X.10 
+    -0.080621607 -0.198021674  0.042587171  0.014918026 -0.004174071
+        
+    Results are same for best subset selection, forward stepwise selection, backward stepwise selection.
+    
+(e) Tried validation set for lasso.
+    TBD: cross-validation

@@ -1,0 +1,114 @@
+Question #10:
+-------------
+(a) summary(Weekly)
+    pairs(Weekly)
+    
+        - Volume increases with increasing Year.
+    cor(Weekly[,-9])
+        - Also shows the correlation between Year and Volume as 0.84194162
+        
+(b) > summary(glm(Direction~Lag1+Lag2+Lag3+Lag4+Lag5+Volume, data=Weekly, family=binomial))
+
+        Call:
+        glm(formula = Direction ~ Lag1 + Lag2 + Lag3 + Lag4 + Lag5 + 
+            Volume, family = binomial, data = Weekly)
+
+        Deviance Residuals: 
+            Min       1Q   Median       3Q      Max  
+        -1.6949  -1.2565   0.9913   1.0849   1.4579  
+
+        Coefficients:
+                    Estimate Std. Error z value Pr(>|z|)   
+        (Intercept)  0.26686    0.08593   3.106   0.0019 **
+        Lag1        -0.04127    0.02641  -1.563   0.1181   
+        Lag2         0.05844    0.02686   2.175   0.0296 * 
+        Lag3        -0.01606    0.02666  -0.602   0.5469   
+        Lag4        -0.02779    0.02646  -1.050   0.2937   
+        Lag5        -0.01447    0.02638  -0.549   0.5833   
+        Volume      -0.02274    0.03690  -0.616   0.5377   
+        ---
+        Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+        (Dispersion parameter for binomial family taken to be 1)
+
+            Null deviance: 1496.2  on 1088  degrees of freedom
+        Residual deviance: 1486.4  on 1082  degrees of freedom
+        AIC: 1500.4
+
+        Number of Fisher Scoring iterations: 4
+
+    Lag2 is the only significant predictor with p-value = 0.0296
+    
+(c) > table(glm.pred, Weekly$Direction)
+        
+    glm.pred Down  Up
+        Down   54  48
+        Up    430 557
+    > mean(glm.pred == Weekly$Direction)
+    [1] 0.5610652
+    
+(d)
+    train.model.LR = glm(Direction~Lag2, data=Weekly, family=binomial, subset=train)
+    LR.probs = predict(train.model.LR, newdata = Weekly[!train,], type="response")
+    LR.pred = rep("Down", length(LR.probs))
+    LR.pred[LR.probs > 0.5] = "Up"
+    
+    > table(LR.pred, Weekly[!train,]$Direction)
+       
+    LR.pred Down Up
+       Down    9  5
+       Up     34 56
+    
+    > mean(LR.pred == Weekly[!train,]$Direction)
+    [1] 0.625
+    
+(e) train.model.LDA = lda(Direction~Lag2, data=Weekly, subset=train)
+    summary(train.model.LDA)
+    LDA.pred = predict(train.model.LDA, newdata=Weekly[!train,])
+    names(LDA.pred)
+    LDA.class = LDA.pred$class
+
+    > table(LDA.class, Weekly[!train,]$Direction)
+    LDA.class Down Up
+         Down    9  5
+         Up     34 56
+         
+    > mean(LDA.class == Weekly[!train,]$Direction)
+    [1] 0.625
+    
+(f) train.model.QDA = qda(Direction~Lag2, data=Weekly, subset=train)
+    QDA.pred = predict(train.model.QDA, newdata=Weekly[!train,])
+    names(QDA.pred)
+    QDA.class = QDA.pred$class
+
+    > table(QDA.class, Weekly[!train,]$Direction)
+    QDA.class Down Up
+         Down    0  0
+         Up     43 61
+         
+    > mean(QDA.class == Weekly[!train,]$Direction)
+    [1] 0.5865385
+    
+(g) knn.pred = knn(data.frame(train.X), data.frame(test.X), train.Direction, k=1)
+    
+    > table(knn.pred, Weekly[!train,]$Direction)
+    knn.pred Down Up
+        Down   21 29
+        Up     22 32
+        
+    > mean(knn.pred == Weekly[!train,]$Direction)
+    [1] 0.5096154
+
+(i)
+    Tried KNN with k=3
+    
+    > knn.pred = knn(data.frame(train.X), data.frame(test.X), train.Direction, k=3)
+    > table(knn.pred, Weekly[!train,]$Direction)
+            
+    knn.pred Down Up
+        Down   16 19
+        Up     27 42
+    > mean(knn.pred == Weekly[!train,]$Direction)
+    [1] 0.5576923
+    
+    Observation: Accuracy increased by around 5%
