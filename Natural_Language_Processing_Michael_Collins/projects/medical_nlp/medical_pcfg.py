@@ -200,6 +200,12 @@ class PCFG:
         for (sym, word), count in self.cfg_counter.unary.iteritems():
             self.word_freq[word] += count
 
+    def write_word_frequency_in_cfg(self, word_freq_file):
+        word_freq_sorted = sorted(self.word_freq.items(), key=lambda x: x[1], reverse=True)
+        with open(word_freq_file, 'w') as fd:
+            for word_freq in word_freq_sorted:
+                fd.write('{0} {1}\n'.format(word_freq[1], word_freq[0]))
+
     def is_rare_word(self, word):
         return self.word_freq[word.lower()] < self.rare_count_threshold
 
@@ -369,6 +375,7 @@ class PCFG:
                         # convert into json
                         tree_json = json.dumps(tree)
                         wfd.write('{0}\n'.format(tree_json))
+                        print('prob of sent_i #{0}: {1}'.format(sent_i, prob))
                     except:
                         err = sys.exc_info()[0]
                         print('Error: compute_parse_tree_for_test_sentences(): sent_i: {0} :: sentence: {1} :: \
@@ -400,7 +407,7 @@ Look at answers of steveha and tzot:
     Actually, you can probably get numbers smaller than 1e-308 via denormals, but there is a significant performance hit
     to this. I found that Python is able to handle 1e-324 but underflows on 1e-325 and returns 0.0 as the value
 """
-def test_precision():
+def test_underflow():
     val = 1.0
     mult = 0.1
     for i in range(1, 500):
@@ -415,30 +422,51 @@ if __name__ == '__main__':
     # filename = 'C:/KA/data/NLP/GENIA/GENIA_treebank_v1/1516825.xml'
     # test_parse(filename)
 
-    # test_precision()
+    # test_underflow()
 
-    pcfg_obj = PCFG()
+    threshold_rare_count = 3
+    pcfg_obj = PCFG(threshold_rare_count)
     folder_treebank = 'C:/KA/data/NLP/GENIA/GENIA_treebank_v1'
     file_train_key = './data/parse_train.dat'
     file_train_xml = './data/parse_train.xml'
     file_train_with_rare_key = './data/parse_train_with_rare.dat'
-    file_input_dev = './data/parse_dev.dat'  # This contains list of sentences
-    file_key_dev = './data/parse_dev.key'
+    file_input_dev = './data/parse_dev_trial.dat'  # This contains list of sentences
+    file_key_dev = './data/parse_dev_trial.key'
     file_out_dev = './data/parse_dev.out'
-    n_file_train = 1000
+    file_cfg_counts = './data/cfg.counts'
+    file_cfg_counts_with_rare = './data/cfg_with_rare.counts'
+    file_word_freq = './data/word.freq'
+    n_file_train = 1500
     pcfg_obj.create_train_and_test_parse_tree(folder_treebank, file_train_key, file_input_dev, file_key_dev, n_file_train)
 
     pcfg_obj.compute_cfg_frequency_in_train_file(file_train_key)
+    pcfg_obj.cfg_counter.write(file_cfg_counts)
     pcfg_obj.compute_word_frequency_in_cfg()
+    pcfg_obj.write_word_frequency_in_cfg(file_word_freq)
     pcfg_obj.create_train_with_rare(file_train_key, file_train_with_rare_key)
     # Now re-compute cfg frequencies
     pcfg_obj.compute_cfg_frequency_in_train_file(file_train_with_rare_key)
+    pcfg_obj.cfg_counter.write(file_cfg_counts_with_rare)
+    print('Start: compute_parse_tree_for_test_sentences')
     pcfg_obj.compute_parse_tree_for_test_sentences(file_input_dev, file_out_dev)
+    print('Finish: compute_parse_tree_for_test_sentences')
+
 
 """
 TBD: use sum of log probabilities instead of multiplication of probabilities to avoid float under-flow
      In psuedocode of Yoshimasa Tsuruoka's paper: Iterative CKY parsing for Probabilistic Context-Free Grammars, they
      have used sum of log probabilities
+
+     Also implement modern parsers mentioned in Lecture video 10-6 / parsing3.pdf page 23 (Results section)
+     - David Magerman (1995) (Decision Tree based)
+     - Carreras et al (2008), Charniak (2005) (Discriminative Estimation based)
+     - Petrov (2010) Latent PCFG based)
+
+ Improvements that can be done:
+    1.  Introduce different types of Rare
+        - count for UNARYRULE JJ _rare_ is high (cfg_with_rare.counts) compared to other POS.
+            Hence any rare word gets dominated by JJ
+    2.  Include Penn Tree Bank dataset included in NLTK. Common english words are rare in GENIA as its from the field of bio-informatics.
 
 To transform any parse tree into Chomsky Normal Form:
     http://www.nltk.org/_modules/nltk/treetransforms.html

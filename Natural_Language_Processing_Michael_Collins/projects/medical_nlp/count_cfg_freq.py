@@ -26,6 +26,17 @@ class Counts:
     for (sym, y1, y2), count in self.binary.iteritems():
       print count, "BINARYRULE", sym, y1, y2
 
+  def write(self, out_file):
+      with open(out_file, 'w') as fd:
+          for symbol, count in self.nonterm.iteritems():
+              fd.write('{0} {1} {2}\n'.format(count, "NONTERMINAL", symbol))
+
+          for (sym, word), count in self.unary.iteritems():
+              fd.write('{0} {1} {2} {3}\n'.format(count, "UNARYRULE", sym, word))
+
+          for (sym, y1, y2), count in self.binary.iteritems():
+              fd.write('{0} {1} {2} {3} {4}\n'.format(count, "BINARYRULE", sym, y1, y2))
+
   def count(self, tree):
     """
     Count the frequencies of non-terminals and rules in the tree.
