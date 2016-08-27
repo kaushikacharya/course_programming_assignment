@@ -1,43 +1,50 @@
-1
-00:00:00,000 --> 00:00:04,193
-One of the most elegant properties of
-problems to graphical models is the
+#! /usr/bin/python
 
-2
-00:00:04,193 --> 00:00:08,500
-intricate connection between the
-factorization of distribution as a product
+import sys, json, pprint
 
-3
-00:00:08,500 --> 00:00:12,580
-of factors, and the independence
-properties that it needs to satisfy. Now
+"""
+Pretty print a tree from json.
+"""
 
-4
-00:00:12,580 --> 00:00:16,773
-we're going to talk about how that
-connection manifests in the context of
+'''Extending pprint'''
 
-5
-00:00:16,773 --> 00:00:21,420
-directed graphical models or Bayesian
-networks. So let's first remind ourselves
+class Node: 
+  """
+  Dummy class for python's pretty printer.
+  """
+  def __init__(self, name): self.name = name 
+  def __repr__(self): return self.name
 
-6
-00:00:21,420 --> 00:00:25,613
-about why independence and factorization
-are related to each other. So, for
+def format_tree(tree):
+  """
+  Convert a tree with strings, to one with nodes.
+  """
+  tree[0] = Node(tree[0])
+  if len(tree) == 2: 
+    tree[1] = Node(tree[1])
+  elif len(tree) == 3: 
+    format_tree(tree[1])
+    format_tree(tree[2])
 
-7
-00:00:25,613 --> 00:00:30,373
-example, the independence definition, that
-P of X comma Y is the, is the product of
+def pretty_print_tree(tree):
+  """
+  Print out a tree with nice formatting.
+  """
+  format_tree(tree)
+  print pprint.pformat(tree)
 
-8
-00:00:30,373 --> 00:00:34,630
-two factors. P of X and P of Y is the
-definition of independence. At the same
+def main(parse_file):
+  for l in open(parse_file):
+    pretty_print_tree(json.loads(l))
+    
 
-9
-00:00:34,630 --> 00:00:38,729
-time it's a fac
+def usage():
+    sys.stderr.write("""
+    Usage: python pretty_print_tree.py [tree_file]
+        Pretty print a file of trees.\n""")
+
+if __name__ == "__main__": 
+  if len(sys.argv) != 2:
+    usage()
+    sys.exit(1)
+  main(sys.argv[1])

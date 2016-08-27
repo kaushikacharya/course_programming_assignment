@@ -1,0 +1,3 @@
+// resources collected by KA:
+http://www.computing.dcu.ie/~jjudge/qtreebank/
+http://www-nlp.stanford.edu/data/QuestionBank-Stanford.shtml
