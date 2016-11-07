@@ -1,0 +1,2 @@
+Need help understanding back_propagated_deriv_1 and back_propagated_deriv_2
+https://www.coursera.org/learn/neural-networks/discussions/weeks/5/threads/DOksa5a6EeavkBIF0YYcyg
