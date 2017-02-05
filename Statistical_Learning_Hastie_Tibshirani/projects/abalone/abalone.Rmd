@@ -1,0 +1,196 @@
+---
+title: "abalone"
+author: "Kaushik Acharya"
+date: "January 26, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r cars}
+summary(cars)
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+```{r}
+library(AppliedPredictiveModeling)
+library(MASS)
+```
+
+http://archive.ics.uci.edu/ml/datasets/Abalone
+```{r}
+data("abalone")
+```
+
+Regression
+================
+Predict Rings using linear regression.
+
+Following http://archive.ics.uci.edu/ml/machine-learning-databases/abalone/abalone.names
+to create test/train set
+```{r}
+n_train = 3133
+```
+
+```{r}
+train_data = abalone[1:n_train,]
+test_data = abalone[n_train+1:4177,]
+
+lm.fit = lm(Rings ~ .-Type, data = train_data)
+summary(lm.fit)
+plot(predict(lm.fit), residuals(lm.fit))
+```
+Observations:
+1) Residual plot shows increase of variance in residuals as rings increase.
+2) Transformation of predictors e.g. sqrt(WholeWeight) makes it more linear wrt Rings, though variance isn't constant.
+
+
+Advantage of using transformation of predictors:
+
+First with original predictor:
+```{r}
+lm.fit = lm(Rings ~ WholeWeight, data = train_data)
+summary(lm.fit)
+```
+Adjusted R-squared:  0.2965
+
+
+Now with transformation
+```{r}
+lm.fit = lm(Rings ~ I(WholeWeight^0.5), data = train_data)
+summary(lm.fit)
+```
+Adjusted R-squared:  0.3361
+
+http://stackoverflow.com/questions/23660094/whats-the-difference-between-integer-class-and-numeric-class-in-r (Greg Snow's answer)
+http://stackoverflow.com/questions/30769325/using-ifelse-within-apply
+
+Analyse the solution provided by:
+http://scg.sdsu.edu/linear-regression-in-r-abalone-dataset/
+http://rstudio-pubs-static.s3.amazonaws.com/9807_2d1e24ad750144d5aaca5e09243a1113.html
+
+Classification
+===============
+Now we will treat this as a classification problem. Will follow the classes created by David Clark et al in "A Quantitative Comparison of Dystal and Backpropagation"
+i.e. class #1: Rings 1-8
+     class #2: Rings 9-10
+     class #3: RIngs > 10
+     
+First exploratory data analysis
+```{r}
+library(lattice)
+library(plyr)
+library(ggplot2)
+```
+
+```{r}
+stripplot(~WholeWeight, data = abalone)
+stripplot(Rings~WholeWeight, data = abalone)
+```
+
+```{r}
+densityplot(~WholeWeight, data=abalone)
+ggplot(data = abalone, aes(x=Rings, group=Type, colour=Type)) + geom_density() + ggtitle("Density of Rings of each Sex")
+ggplot(data = abalone, aes(x=Diameter, group=Type, colour=Type)) + geom_density() + ggtitle("Density of Diameter of each Sex")
+```
+   
+```{r}
+abalone_classification_df = abalone
+
+abalone_classification_df$Class = as.factor(apply(abalone_classification_df, 1, function(x){ifelse(as.numeric(x[9]) < 9, 1, ifelse(as.numeric(x[9]) < 11, 2, 3))}))
+```
+
+```{r}
+abalone_classification_train_data = abalone_classification_df[1:n_train,]
+abalone_classification_test_data = abalone_classification_df[(n_train+1):4177,]
+```
+
+Linear Discriminant Analysis
+```{r}
+lda.fit = lda(Class~LongestShell+Diameter+Height+WholeWeight+ShuckedWeight+VisceraWeight+ShellWeight, data = abalone_classification_train_data)
+lda.fit
+lda.pred = predict(lda.fit, newdata = abalone_classification_test_data)
+pairs(abalone_classification_train_data, col=abalone_classification_train_data$Class)
+table(lda.pred$class, abalone_classification_test_data$Class)
+```
+
+Multinomial Logistic Regression
+http://www.ats.ucla.edu/stat/r/dae/mlogit.htm
+```{r}
+library(nnet)
+```
+
+```{r}
+mlr.fit = multinom(Class~LongestShell+Diameter+Height+WholeWeight+ShuckedWeight+VisceraWeight+ShellWeight, data = abalone_classification_train_data)
+summary(mlr.fit)
+z = summary(mlr.fit)$coefficients/summary(mlr.fit)$standard.errors
+p = (1-pnorm(abs(z),0,1))*2
+mlr.pred = predict(mlr.fit, newdata = abalone_classification_test_data)
+table(mlr.pred, abalone_classification_test_data$Class)
+```
+
+Principal Component Analysis
+pairs() scatter plot shows correlation between various features. Hence applying PCA.
+```{r}
+# create feature dataframe from numeric columns
+abalone_classification_train_feature_data = abalone_classification_train_data[,c("LongestShell","Diameter","Height","WholeWeight","ShuckedWeight","VisceraWeight","ShellWeight")]
+# apply PCA on the feature dataframe
+pca.out = prcomp(abalone_classification_train_feature_data, scale. = TRUE)
+# std dev
+pca.out$sdev
+# proportion variance explained
+pca.out$sdev^2./sum(pca.out$sdev^2)
+# rotation matrix
+pca.out$rotation
+
+# check the projected x value
+# parameter: retx=TRUE
+# output x = rotated data after centred and scaled
+# check 1st sample's PC1 projected value
+sum(((abalone_classification_train_feature_data[1,] - pca.out$center)/pca.out$scale)*pca.out$rotation[,c("PC1")])
+# This is same as:
+pca.out$x[1,c("PC1")]
+
+# create a new dataframe with 1st two pca components as feature and class
+abalone_classification_test_feature_data = abalone_classification_test_data[,c("LongestShell","Diameter","Height","WholeWeight","ShuckedWeight","VisceraWeight","ShellWeight")]
+# http://stackoverflow.com/questions/18382883/what-is-the-right-way-to-multiply-data-frame-by-vector
+df = abalone_classification_test_feature_data
+pc1_data = rowSums(data.frame(mapply('*', data.frame(mapply('/',data.frame(mapply('-', df, pca.out$center)),pca.out$scale)), pca.out$rotation[,c("PC1")])))
+pc2_data = rowSums(data.frame(mapply('*', data.frame(mapply('/',data.frame(mapply('-', df, pca.out$center)),pca.out$scale)), pca.out$rotation[,c("PC2")])))
+# Now create the dataframe with PC1,PC2,Class
+abalone_classification_test_pca_data = data.frame(PC1=pc1_data, PC2=pc2_data,Class=abalone_classification_test_data[,c("Class")])
+
+# similarly create the train data using PC1,PC2 as features
+abalone_classification_train_pca_data = data.frame(PC1=pca.out$x[,c("PC1")], PC2=pca.out$x[,c("PC2")], Class=abalone_classification_train_data[,c("Class")])
+
+# LDA fit using PCA features
+lda_pca.fit = lda(Class~PC1+PC2, data=abalone_classification_train_pca_data)
+lda_pca.pred = predict(lda_pca.fit, newdata = abalone_classification_test_pca_data)
+table(lda_pca.pred$class, abalone_classification_test_pca_data$Class)
+```
+Observation: Accuracy with first two principal components as features is less than having all numeric features for LDA.
+
+-0.5594027*0.3838488 - 0.4183253*0.3844536 - 1.028594*0.3425372 - 0.629758*0.3917468 - 0.5973377*0.3790241 - 0.7137242*0.3825250 - 0.6232244*0.3795702
+
+Histogram plots
+```{r}
+hist(subset(abalone$LongestShell, subset = (as.numeric(abalone$Type)==1)))
+hist(subset(abalone$LongestShell, subset = (as.numeric(abalone$Type)==3)))
+```
