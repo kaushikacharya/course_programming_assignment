@@ -189,8 +189,24 @@ Observation: Accuracy with first two principal components as features is less th
 
 -0.5594027*0.3838488 - 0.4183253*0.3844536 - 1.028594*0.3425372 - 0.629758*0.3917468 - 0.5973377*0.3790241 - 0.7137242*0.3825250 - 0.6232244*0.3795702
 
+Support Vector Machine (SVM)
+```{r}
+library(e1071)
+```
+
+```{r}
+svm.fit = svm(Class~LongestShell+Diameter+Height+WholeWeight+ShuckedWeight+VisceraWeight+ShellWeight, data=abalone_classification_train_data, kernel="linear", cost=10, scale=TRUE)
+svm.pred = predict(svm.fit, newdata=abalone_classification_test_data)
+table(abalone_classification_test_data$Class, svm.pred)
+```
+
 Histogram plots
 ```{r}
 hist(subset(abalone$LongestShell, subset = (as.numeric(abalone$Type)==1)))
 hist(subset(abalone$LongestShell, subset = (as.numeric(abalone$Type)==3)))
 ```
+
+Can be explored:
+http://www.sthda.com/english/wiki/principal-component-analysis-in-r-prcomp-vs-princomp-r-software-and-data-mining
+http://stats.stackexchange.com/questions/72839/how-to-use-r-prcomp-results-for-prediction
+

@@ -1,0 +1,123 @@
+---
+title: "Wine Quality"
+author: "Kaushik Acharya"
+date: "February 25, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+source: http://archive.ics.uci.edu/ml/datasets/Wine+Quality
+
+```{r}
+wine = read.table("winequality-white.csv", header = TRUE, sep = ";")
+# display headers
+names(wine)
+head(wine)
+```
+
+```{r}
+# histogram plot
+barplot(table(wine$quality))
+```
+
+```{r}
+summary(wine)
+```
+
+Linear Regression
+-----------------
+```{r}
+library(leaps)
+```
+
+```{r}
+regfit.fwd = regsubsets(quality~., data = wine, method = "forward", nvmax = 12)
+summary(regfit.fwd)
+plot(regfit.fwd, scale = "Cp")
+```
+
+Create train and validation set
+```{r}
+n_samples = dim(wine)[1]
+n_features = dim(wine)[2]-1
+set.seed(1)
+train = sample(seq(n_samples), floor(2*n_samples/3), replace = FALSE)
+regfit.fwd = regsubsets(quality~., data = wine[train,], nvmax = n_features, method = "forward")
+summary(regfit.fwd)
+```
+
+Now make predictions on validation data
+```{r}
+predict.regsubsets = function(object, newdata, id,...)
+{
+  form = as.formula(object$call[[2]])
+  mat = model.matrix(form, newdata)
+  coefi = coef(object, id=id)
+  mat[,names(coefi)]%%coefi
+}
+```
+
+```{r}
+val.errors = rep(NA, n_features)
+# iterate over each of the model
+for (i in 1:n_features){
+  pred = predict(regfit.fwd, wine[-train,], id = i)
+  val.errors[i] = mean((wine[-train,]-pred)^2)
+}
+
+# plot the rmse
+plot(sqrt(val.errors), ylab = "Root MSE", pch=19, type="b")
+points(sqrt(regfit.fwd$rss[-1]),col="blue",pch=19,type="b")
+legend("topright",legend=c("Training","Validation"),col=c("blue","black"),pch=19)
+```
+
+
+Classification
+--------------
+Create classes for classification using values of quality
+```{r}
+wine$taste = ifelse(wine$quality < 6, "bad", "good")
+wine$taste[wine$quality == 6] = "normal"
+wine$taste = as.factor(wine$taste)
+```
+
+```{r}
+pairs(wine, col=wine$taste)
+```
+
+```{r}
+require(randomForest)
+```
+
+
+```{r}
+rf.fit = randomForest(taste~.-quality, data = wine, subset = train)
+rf.fit
+```
+
+```{r}
+pred = predict(rf.fit, newdata = wine[-train,])
+table(wine[-train,"taste"], pred)
+```
+
+
+
+References
+---------
+https://www.r-bloggers.com/predicting-wine-quality-using-random-forests/
+
+With descriptive analysis
+https://rpubs.com/Daria/57835
+http://rstudio-pubs-static.s3.amazonaws.com/24803_abbae17a5e154b259f6f9225da6dade0.html
+
+
+
