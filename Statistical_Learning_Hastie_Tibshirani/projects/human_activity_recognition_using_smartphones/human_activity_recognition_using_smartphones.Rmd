@@ -1,0 +1,33 @@
+---
+title: "Human Activity Recognition with Smartphones"
+author: "Kaushik Acharya"
+date: "March 20, 2017"
+output: html_document
+---
+
+
+Load data
+```{r}
+human_activity_df = read.table(file="C:/KA/personal/course_programming_assignment/Statistical_Learning_Hastie_Tibshirani/projects/human_activity_recognition_using_smartphones//train.csv", header=TRUE, sep=",")
+```
+
+Show the column names
+```{r}
+colnames(human_activity_df)
+```
+
+Summary
+```{r}
+summary(human_activity_df)
+```
+
+
+
+Resource:
+https://archive.ics.uci.edu/ml/datasets/Human+Activity+Recognition+Using+Smartphones
+https://www.kaggle.com/uciml/human-activity-recognition-with-smartphones
+https://github.com/guillaume-chevalier/LSTM-Human-Activity-Recognition
+
+Jorge Luis Reyes Ortiz's publication:
+https://sites.google.com/site/jorgereyesresearch/publications
+(He is part of the group which collected the data.)

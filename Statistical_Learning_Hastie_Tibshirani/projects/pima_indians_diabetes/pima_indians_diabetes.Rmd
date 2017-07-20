@@ -1,0 +1,208 @@
+---
+title: "Prima Indians Diabetes"
+author: "Kaushik Acharya"
+date: "June 24, 2017"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Binary classification
+---------------------
+
+Load the dataset
+```{r}
+pima = read.table("pima-indians-diabetes-database/diabetes.csv", header = TRUE, sep = ",")
+names(pima)
+head(pima)
+```
+
+Exploratory data analysis
+```{r}
+summary(pima)
+```
+
+Histogram plot of each variable
+https://stackoverflow.com/questions/35372365/how-do-i-generate-a-histogram-for-each-column-of-my-table
+```{r}
+library(reshape2)
+library(ggplot2)
+```
+
+```{r}
+ggplot(data = melt(pima), mapping = aes(x = value)) + 
+    geom_histogram(bins = 10) + facet_wrap(~variable, scales = 'free_x')
+```
+http://ggplot2.tidyverse.org/reference/geom_histogram.html
+Last part in the webpage shows how to dynamically calculate binwidth. But this doesn't seem to work.
+
+Observation:
+Zero values in columns like BMI, SkinThickness etc represent missing values
+Calculate missing data percentage
+
+Number of observations:
+```{r}
+dim(pima)[1]
+```
+
+Number of observations having atleast 1 missing value
+```{r}
+dim(pima)[1] - dim(pima[pima$Glucose > 0 & pima$BloodPressure > 0 & pima$SkinThickness > 0 & pima$Insulin > 0 & pima$BMI > 0,])[1]
+```
+
+Replace the missing values which have been put as 0 by NA
+https://stackoverflow.com/questions/13871614/replacing-values-from-a-column-using-a-condition-in-r
+```{r}
+pima_with_na <- pima
+pima_with_na$Glucose[pima_with_na$Glucose == 0] <- NA
+pima_with_na$BloodPressure[pima_with_na$BloodPressure == 0] <- NA
+pima_with_na$SkinThickness[pima_with_na$SkinThickness == 0] <- NA
+pima_with_na$Insulin[pima_with_na$Insulin == 0] <- NA
+pima_with_na$BMI[pima_with_na$BMI == 0] <- NA
+```
+
+Let's apply decision tree without applying missing value imputation i.e. with missing values
+```{r}
+library(ISLR)
+library(tree)
+```
+Convert Outcome column to factor
+```{r}
+pima_with_na$Outcome <- as.factor(pima_with_na$Outcome)
+```
+
+Split the data into train and validation set(400,368)
+```{r}
+set.seed(100)
+train = sample(1:nrow(pima_with_na), 400)
+```
+
+```{r}
+pima_tree.without_imputation <- tree(Outcome~., data=pima_with_na, subset = train)
+summary(pima_tree.without_imputation)
+plot(pima_tree.without_imputation)
+```
+Observation: Decision tree training reports "Misclassification error rate" only for non-NA rows. It might be that it ignores rows with any NA during training.
+
+```{r}
+pima_tree.predict_without_imputation <- predict(pima_tree.without_imputation, newdata=pima_with_na[-train,], type="class")
+with(pima_with_na[-train,], table(pima_tree.predict_without_imputation, pima_with_na[-train,]$Outcome))
+```
+TBD: Apply cross validation to prune the tree
+
+Random Forest
+-------------
+```{r}
+library(randomForest)
+```
+
+Unlike decision tree implementation, randomForest implementation expects that there should be no missing values.
+rfImpute impute missing values by median/mode as mentioned in na.roughfix
+
+KNN imputation for missing values
+---------------------------------
+
+```{r}
+library(DMwR)
+```
+
+```{r}
+# KNN impute on train data
+pima_knn_impute.train <- knnImputation(pima_with_na[train,!names(pima_with_na) %in% "Outcome"])
+pima_knn_impute.train['Outcome'] <- pima_with_na[train,]$Outcome
+# Create the decision tree on this imputed train data
+pima_tree.with_knn_impute <- tree(Outcome~., data=pima_knn_impute.train)
+summary(pima_tree.with_knn_impute)
+plot(pima_tree.with_knn_impute)
+```
+Now predict on test data using the decision tree created from KNN imputed data.
+
+```{r}
+# Impute test data using the imputed train data
+pima_knn_impute.test <- knnImputation(pima_with_na[-train,!names(pima_with_na) %in% "Outcome"], distData = pima_knn_impute.train[,!names(pima_with_na) %in% "Outcome"])
+pima_knn_impute.test['Outcome'] <- pima_with_na[-train,]$Outcome
+# Predict on this imputed test data
+pima_tree.predict_with_imputation <- predict(pima_tree.with_knn_impute, newdata=pima_knn_impute.test, type="class")
+with(pima_with_na[-train,], table(pima_tree.predict_with_imputation, pima_with_na[-train,]$Outcome))
+```
+
+```{r}
+library(randomForest)
+```
+
+```{r}
+rf.with_knn_impute = randomForest(Outcome~., data = pima_knn_impute.train)
+```
+Confusion matrix on train data
+```{r}
+rf.with_knn_impute$confusion
+```
+
+```{r}
+rf.predict_with_imputation <- predict(rf.with_knn_impute, newdata = pima_knn_impute.test, type = "class")
+with(pima_with_na[-train,], table(rf.predict_with_imputation,pima_with_na[-train,]$Outcome))
+```
+
+Logistic Regression
+-------------------
+```{r}
+lr.model.with_knn_impute = glm(Outcome~., data = pima_knn_impute.train, family = binomial)
+lr.probs.with_knn_impute = predict(lr.model.with_knn_impute, newdata = pima_knn_impute.test, type="response")
+lr.pred.with_knn_impute = rep(0, length(lr.probs.with_knn_impute))
+lr.pred.with_knn_impute[lr.probs.with_knn_impute > 0.5] = 1
+table(lr.pred.with_knn_impute, pima_knn_impute.test$Outcome)
+```
+TBD: Select the probability threshold for assigning Outcome class using the metrics, search over range of probabilities.
+
+
+
+References:
+----------
+https://archive.ics.uci.edu/ml/datasets/Pima+Indians+Diabetes
+https://www.kaggle.com/uciml/pima-indians-diabetes-database
+http://machinelearningmastery.com/machine-learning-datasets-in-r/
+
+Missing value imputation:
+https://www.researchgate.net/post/How_to_use_a_decision_tree_to_fill_in_the_missing_values_of_a_data_set (several suggestions provided)
+Week 4 - Handling Missing Data:
+https://www.coursera.org/learn/ml-classification
+
+mice library used:
+https://edumine.wordpress.com/2015/05/04/how-to-solve-the-missing-data-problem/
+
+Missing Value Imputation Using Decision Trees and Decision Forests by Splitting and Merging Records
+(Explanation of paper by the authors)
+https://www.youtube.com/watch?v=PLbtAFVjJJU
+
+How to fill missing data using advance imputation techniques in R (part 1)?
+https://www.youtube.com/watch?v=T3kFrdhXap0
+
+rpart library:
+https://stackoverflow.com/questions/26924892/building-classification-tree-having-categorical-variables-using-rpart
+https://stackoverflow.com/questions/29131254/how-to-generate-a-prediction-interval-from-a-regression-tree-rpart-object  (rpart vs party library, mention of confidence intervals)
+
+https://datascienceplus.com/missing-value-treatment/ (various options mentioned but no theory on advanced options)
+https://www.r-bloggers.com/missing-value-treatment/ (same article)
+
+Suggestion of Gaussian randomness for imputation:
+https://www.kaggle.com/lejustin/feature-engineering-metric-comparison
+
+
+Fancyimpute: Python library which has implementation of several algorithms **
+Link to papers also provided
+https://github.com/hammerlab/fancyimpute
+https://pypi.python.org/pypi/fancyimpute
+https://chrisalbon.com/machine-learning/impute_missing_values_with_k-nearest_neighbors.html (usage of KNN method)
+
+locality sensitive hashing (LHS) is suggested for higher dimensions
+https://kevinzakka.github.io/2016/07/13/k-nearest-neighbor/
+
+https://www.r-bloggers.com/evaluating-logistic-regression-models/ **
+
+https://www.kaggle.com/lbronchal/pima-indians-diabetes-database-analysis ***
+a) MICE for missing values imputation
+b) Distribution of the variables
+c) Feature selection using caret's Backwards FEature Selection
