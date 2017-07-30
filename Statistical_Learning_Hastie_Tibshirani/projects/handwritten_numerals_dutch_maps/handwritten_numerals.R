@@ -1,3 +1,6 @@
+library(nnet)
+library(Rtsne)
+
 # Parse the six feature set files and rewrite in csv format
 # Also combine to create the feature data frame
 # This is required as exisiting feature set files don't have uniform spacing between the columns
@@ -107,6 +110,7 @@ create_data_set <- function(data_folder="mfeat/", data_csv_folder="mfeat_csv/"){
 }
 
 #' split row indices into train and validation set
+#' TBD: Also create option to select equal number of samples from each class
 split_train_validation <- function(data_csv_folder="mfeat_csv/", train_frac=0.7, seed_val=100){
   df <- read.csv(file = file.path(data_csv_folder,"mfeat-combined"), header = TRUE, sep = ",")
   set.seed(seed_val)
@@ -134,12 +138,6 @@ compute_principal_components <- function(data_csv_folder="mfeat_csv/", feature_s
   
   df.validation <- predict(object = pca.train, newdata = df[-train,])
   
-  # df.train.top_principal_components <- pca.train$x[,1:n_top_prin_comp]
-  # df.validation.top_principal_components <- df.validation[,1:n_top_prin_comp]
-  
-  # print(paste0("rownames(train): ", paste(rownames(df.train.top_principal_components),collapse = ",") ))
-  # print(paste0("rownames(validation): ", paste(rownames(df.validation.top_principal_components),collapse = ",") ))
-  
   df.pca <- rbind(pca.train$x, df.validation)
   # re-order the rows in its original position
   # https://stackoverflow.com/questions/20295787/how-can-i-use-the-row-names-attribute-to-order-the-rows-of-my-dataframe-in-r
@@ -153,15 +151,12 @@ compute_principal_components <- function(data_csv_folder="mfeat_csv/", feature_s
 #' 
 #' @param train Row indices for creating train subset
 transform_feature_using_pca <- function(data_csv_folder="mfeat_csv/", train, n_validation){
-  # df.train.toppc <- data.frame(matrix(,nrow = length(train),ncol = 0))
-  # df.validation.toppc <- data.frame(matrix(,nrow = n_validation,ncol = 0))
-  df.toppc <- data.frame(matrix(,nrow = length(train) + n_validation,ncol = 0))
+  df.pca <- data.frame(matrix(,nrow = length(train) + n_validation,ncol = 0))
+  # This vector of objects maps key: feature set name to value: n top principal components
+  feature_set_to_ncomp_map <- list()
   
+  # Ignoring "mfeat-mor" as there are only 6 features
   for (feature_set in c("mfeat-fac","mfeat-fou","mfeat-kar","mfeat-pix","mfeat-zer")){
-    # df.pair.toppc <- compute_principal_components(data_csv_folder,feature_set,train)
-    # df.feature.train.toppc <- df.pair.toppc[[1]]
-    # df.feature.validation.toppc <- df.pair.toppc[[2]]
-    
     df.feature.pca.output <- compute_principal_components(data_csv_folder,feature_set,train)
     df.feature.pca <- df.feature.pca.output[[1]]
     feature.n_top_prin_comp <- df.feature.pca.output[[2]]
@@ -171,39 +166,62 @@ transform_feature_using_pca <- function(data_csv_folder="mfeat_csv/", train, n_v
     
     # append feature name in the principal components column names
     tokens_feature_name <- strsplit(x = feature_set, split = "-")
-    # colnames(df.feature.train.toppc) <- paste0(colnames(df.feature.train.toppc),tokens_feature_name[[1]][2])
-    # colnames(df.feature.validation.toppc) <- paste0(colnames(df.feature.validation.toppc),tokens_feature_name[[1]][2])
     colnames(df.feature.toppc) <- paste0(colnames(df.feature.toppc),tokens_feature_name[[1]][2])
     
     # Now append these columns to the final dataframe
-    # df.train.toppc <- cbind(df.train.toppc,df.feature.train.toppc)
-    # df.validation.toppc <- cbind(df.validation.toppc,df.feature.validation.toppc)
-    df.toppc <- cbind(df.toppc, df.feature.toppc)
+    df.pca <- cbind(df.pca, df.feature.toppc)
+    
+    feature_set_to_ncomp_map[[feature_set]] <- feature.n_top_prin_comp
   }
   
   # Since there are only 6 morphological features, we are taking the entire set
   df.mor <- read.csv(file = file.path(data_csv_folder,"mfeat-mor"), header = TRUE, sep = ",")
-  # df.train.toppc <- cbind(df.train.toppc,df.mor[train,])
-  # df.validation.toppc <- cbind(df.validation.toppc,df.mor[-train,])
-  df.toppc <- cbind(df.toppc, df.mor)
+  df.pca <- cbind(df.pca, df.mor)
   
-  # return(list(df.train.toppc,df.validation.toppc))
-  return(df.toppc)
+  output <- list()
+  output[["df.pca"]] <- df.pca
+  output[["feature_set_to_ncomp_map"]] <- feature_set_to_ncomp_map
+  
+  return(output)
 }
 
-
-# TBD: create Class column as as.factor
+#' Create Class column
 append_class_to_df <- function(df,index_vec){
   #  The first 200 patterns are of class `0', followed by sets of 200 patterns for each of the classes `1' - `9'.
   vec_class <- c()
   for (index in index_vec){
-    vec_class <- c(vec_class,floor((index-1)/200)+1)
+    vec_class <- c(vec_class,floor((index-1)/200))
   }
   df <- cbind(df, data.frame(Class=vec_class))
+  df$Class <- as.factor(df$Class)
   
   return(df)
 }
 
+#' Create a list of column names based on 1st k principal components for the given feature set
+#' These column names should be in sync with column names of df.pca of transform_feature_using_pca
+#' 
+#' @example feature_set "mfeat-fac"
+create_topk_pca_feature_set <- function(feature_set,k){
+  # append feature name in the principal components column names
+  tokens_feature_name <- strsplit(x = feature_set, split = "-")
+  topk_pca_features <- paste0("PC",1:k,tokens_feature_name[[1]][[2]])
+  
+  return(topk_pca_features)
+}
+
+create_tsne_plot <- function(data_csv_folder="mfeat_csv/",feature_set="mfeat-pix",train){
+  df <- read.csv(file = file.path(data_csv_folder,feature_set), header = TRUE, sep = ",")
+  # https://stats.stackexchange.com/questions/223602/why-does-the-implementation-of-t-sne-in-r-default-to-the-removal-of-duplicates
+  # For large dataset, duplicates shouldn't be checked
+  tsne_model <- Rtsne(as.matrix(df[train,]), check_duplicates = FALSE, pca = TRUE, perplexity = 30,
+                      dims = 2, max_iter = 1000, verbose = TRUE)
+  df <- append_class_to_df(df, 1:nrow(df))
+  colors <- rainbow(n = length(unique(df[train,]$Class)))
+  names(colors) <- unique(df[train,]$Class)
+  plot(tsne_model$Y, t='n', main = "tsne")
+  text(tsne_model$Y, labels = df[train,"Class"], col = colors[df[train,"Class"]])
+}
 
 # source: https://archive.ics.uci.edu/ml/datasets/Multiple+Features
 
@@ -226,5 +244,12 @@ append_class_to_df <- function(df,index_vec){
 # https://stackoverflow.com/questions/7466023/how-to-give-color-to-each-class-in-scatter-plot-in-r
 
 # TBD:
-#   - For each set of features plot scatter plot with top two principal components.
+#   - https://www.kaggle.com/c/digit-recognizer/data
+#     Do this in another project
+#   - For each set of features plot scatter plot with top two principal components and save the plots.
 #   - Plot proportion of variance explained wrt to principal components for each feature set
+#   - For KNN classification function pass parameter which decides how many top principal components to pick.
+#     Advancements:
+#     - Function should take single feature set. This will in iteration take 1st PCA, 1st two PCA and further till accuracy doesn't improves significantly.
+#     - This can be further improved to do using cross-validation.
+#   - transform_feature_using_pca(): return entire pca
