@@ -19,6 +19,7 @@ class DigitRecognizer:
         self.test_df = None
 
         # train_file is being split into train, validation sets
+        # The following contains the data after dimensionality reduction
         self.train_data_df = None
         self.validation_data_df = None
         self.train_label_array = None
@@ -34,19 +35,29 @@ class DigitRecognizer:
 
     def split_train_validation(self, train_fraction=0.7):
         """ Split train.csv into train and validation set
+            Model(s) are trained on train set and validated on validation set
         """
         # separate the label from the features
         data_df = self.train_df.drop("label", axis=1)
         label_array = np.array(self.train_df.ix[:, "label"])
 
         # Dimensionality reduction using PCA
-        # TODO check how to predict pca on validation set
         # TODO normalize each of the columns
-        pca = PCA(n_components=50)
-        data_df = pca.fit_transform(data_df)
+        # ?? Will normalize matter where almost all the columns will have min=0 and max=255
+        # pca = PCA(n_components=50)
+        # data_df = pca.fit_transform(data_df)
 
         train_index_array, validation_index_array = train_test_split(range(0, len(self.train_df.index)),
                                                                      train_size=train_fraction)
+        proportion_variance_explained_threshold = 0.9
+
+        pca = PCA(n_components=proportion_variance_explained_threshold)
+        # Fit PCA on train set
+        self.train_data_df = pca.fit_transform(data_df.ix[train_index_array, ])
+        # Now use the PCA model fitted on train set to transform validation set
+        self.validation_data_df = pca.transform(data_df.ix[validation_index_array, ])
+
+        """
         # PCA fit output is of type numpy.ndarray
         if isinstance(data_df, pd.DataFrame):
             self.train_data_df = data_df.ix[train_index_array, ]
@@ -59,6 +70,7 @@ class DigitRecognizer:
         else:
             self.train_data_df = data_df[train_index_array,]
             self.validation_data_df = data_df[validation_index_array,]
+        """
 
         # store the labels
         self.train_label_array = label_array[train_index_array]
@@ -269,6 +281,7 @@ class BackPropagation:
             self.update_weights()
 
     def validate(self):
+        incorrect_prediction_count = 0
         for validate_i in range(len(self.validation_df)):
             # assign input layer
             self.input_layer_array = self.validation_df[validate_i]
@@ -281,6 +294,10 @@ class BackPropagation:
             print "validate_i: {0} :: true class: {1} : (prob) ({2}) :: predicted class: {3} : (prob): ({4})"\
                 .format(validate_i, true_class, self.output_layer_activation_array[true_class],
                         predicted_class, self.output_layer_activation_array[predicted_class])
+            if true_class != predicted_class:
+                incorrect_prediction_count += 1
+
+        print "incorrect prediction: {0} %".format(incorrect_prediction_count*100/len(self.validation_df))
 
 if __name__ == "__main__":
     digit_recognizer_obj = DigitRecognizer("data", "train_trial.csv")
@@ -301,6 +318,7 @@ TODO:
     - Split train into (a) train, (b) validation using random split with seed
     - Dimensionality reduction using PCA, random projection
     - Plot t-sne from scikit-learn
+    - Create confusion matrix
 
 Current implementation:
     - single hidden layer, softmax backpropagation with cross entropy as cost function
@@ -318,4 +336,12 @@ Resource:
 
     Weight Update in mini-batch:
         https://stats.stackexchange.com/questions/266968/how-does-minibatch-gradient-descent-update-the-weights-for-each-example-in-a-bat
+
+    Applying PCA to test data:
+        https://stats.stackexchange.com/questions/144439/applying-pca-to-test-data-for-classification-purposes
+        Advice on using the same transformation for test set which is learnt over train set:
+            https://www.analyticsvidhya.com/blog/2016/03/practical-guide-principal-component-analysis-python/
+
+    Explanation of fit, fit_transform in scikit:
+        https://datascience.stackexchange.com/questions/12321/difference-between-fit-and-fit-transform-in-scikit-learn-models
 """
