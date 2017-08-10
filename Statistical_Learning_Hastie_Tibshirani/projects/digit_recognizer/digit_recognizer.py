@@ -15,83 +15,104 @@ class DigitRecognizer:
         self.train_file = train_file
         self.test_file = test_file
 
+        """
         self.train_df = None
         self.test_df = None
+        """
 
-        # train_file is being split into train, validation sets
+        self.train_features_data = None
+        self.validation_features_data = None
+
         # The following contains the data after dimensionality reduction
-        self.train_data_df = None
-        self.validation_data_df = None
+        self.train_features_reduced_data = None
+        self.validation_features_reduced_data = None
+
         self.train_label_array = None
         self.validation_label_array = None
 
+        # train_file is being split into train, validation sets
+        # The following contains the data after dimensionality reduction
+        # self.train_data_df = None
+        # self.validation_data_df = None
+
     def load_train_data(self):
+        """ Load train_file data
+            This data is later split into train,validation sets
+        """
+        # alternate is using numpy.loadtxt whose return type is ndarray
+        # But then label column would be needed to be moved into label array
         with open(os.path.join(self.data_folder, self.train_file), "r") as fd:
-            self.train_df = pd.read_csv(fd)
+            train_df = pd.read_csv(fd)
+        return train_df
 
     def load_test_data(self):
         with open(name=os.path.join(self.data_folder, self.test_file), mode="r") as fd:
-            self.test_file = pd.read_csv(fd)
+            test_df = pd.read_csv(fd)
+        return test_df
 
-    def split_train_validation(self, train_fraction=0.7):
+    def split_train_validation(self, file_data_df, train_fraction=0.7):
         """ Split train.csv into train and validation set
             Model(s) are trained on train set and validated on validation set
+
+            Parameters
+            ----------
+            file_data_df Each row has both feature and label
+                         This is the dataframe loaded from train_file
         """
-        # separate the label from the features
-        data_df = self.train_df.drop("label", axis=1)
-        label_array = np.array(self.train_df.ix[:, "label"])
+        label_array = np.array(file_data_df.ix[:, "label"])
 
-        # Dimensionality reduction using PCA
-        # TODO normalize each of the columns
-        # ?? Will normalize matter where almost all the columns will have min=0 and max=255
-        # pca = PCA(n_components=50)
-        # data_df = pca.fit_transform(data_df)
-
-        train_index_array, validation_index_array = train_test_split(range(0, len(self.train_df.index)),
+        train_index_array, validation_index_array = train_test_split(range(len(file_data_df.index)),
                                                                      train_size=train_fraction)
-        proportion_variance_explained_threshold = 0.9
-
-        pca = PCA(n_components=proportion_variance_explained_threshold)
-        # Fit PCA on train set
-        self.train_data_df = pca.fit_transform(data_df.ix[train_index_array, ])
-        # Now use the PCA model fitted on train set to transform validation set
-        self.validation_data_df = pca.transform(data_df.ix[validation_index_array, ])
-
-        """
-        # PCA fit output is of type numpy.ndarray
-        if isinstance(data_df, pd.DataFrame):
-            self.train_data_df = data_df.ix[train_index_array, ]
-            self.validation_data_df = data_df.ix[validation_index_array, ]
-
-            # re-index train, validation dataframes
-            # https://stackoverflow.com/questions/19609631/python-changing-row-index-of-pandas-data-frame
-            self.train_data_df.index = range(len(train_index_array))
-            self.validation_data_df.index = range(len(validation_index_array))
-        else:
-            self.train_data_df = data_df[train_index_array,]
-            self.validation_data_df = data_df[validation_index_array,]
-        """
 
         # store the labels
         self.train_label_array = label_array[train_index_array]
         self.validation_label_array = label_array[validation_index_array]
 
+        # Now split the features dataframe into train,validation
+        # Separate the label from the features
+        features_data_df = file_data_df.drop("label", axis=1)
+        # https://stackoverflow.com/questions/17682613/how-to-convert-a-pandas-dataframe-subset-of-columns-and-rows-into-a-numpy-array
+        # (a) convert pandas dataframe into numpy ndarray  (b) converting pixel intensities from int to float
+        self.train_features_data = features_data_df.loc[train_index_array, ].values.astype(float)
+        self.validation_features_data = features_data_df.loc[validation_index_array, ].values.astype(float)
+
+    # TODO Allow other methods for dimensionality reduction e.g. random projection
+    def dimensionality_reduction(self, proportion_variance_explained_threshold = 0.9):
+        """ Dimensionality reduction of train, validation data
+            Currently PCA is used.
+        """
+        assert self.train_label_array is not None, "pre-requisite: split the data using the function: split_train_validation()"
+        assert self.validation_label_array is not None, "pre-requisite: split the data using the function: split_train_validation()"
+
+        # Normalize by dividing (max-min) i.e. (255-0)
+        self.train_features_data /= 255
+        self.validation_features_data /= 255
+        pca = PCA(n_components=proportion_variance_explained_threshold)
+        # Fit PCA on train set
+        self.train_features_reduced_data = pca.fit_transform(self.train_features_data)
+        # Now use the PCA model fitted on train set to transform validation set
+        self.validation_features_reduced_data = pca.transform(self.validation_features_data)
+
 
 class BackPropagation:
-    def __init__(self, train_df, validation_df, train_label_array, validation_label_array, learning_rate=0.05):
-        # converting train/validation dataframe to ndarray
-        if isinstance(train_df, pd.DataFrame):
-            train_df = np.ndarray(train_df)
-        if isinstance(validation_df, pd.DataFrame):
-            validation_df = np.ndarray(validation_df)
-        self.train_df = train_df
-        self.validation_df = validation_df
+    def __init__(self, train_data, validation_data, train_label_array, validation_label_array, learning_rate=0.05):
+        """ Initialize BackPropagation
+
+            Parameters
+            ----------
+            train_data : numpy.ndarray, shape(n_train_samples, n_features)
+            validation_data : numpy.ndarray, shape(n_validation_samples, n_features)
+        """
+        assert isinstance(train_data, np.ndarray), "train_data type: numpy.ndarray"
+        assert isinstance(validation_data, np.ndarray), "validation_data type: numpy.ndarray"
+
+        self.train_data = train_data
+        self.validation_data = validation_data
         self.train_label_array = train_label_array
         self.validation_label_array = validation_label_array
         # hidden layers/nodes
         self.n_hidden_layers = 1
-        # self.n_input_nodes = len(train_df.columns)
-        self.n_input_nodes = train_df.shape[1]
+        self.n_input_nodes = train_data.shape[1]
         self.n_output_nodes = 10  # digits 0 - 9
         self.n_hidden_nodes = None
         # weights
@@ -160,6 +181,8 @@ class BackPropagation:
                     self.theta[(level_i, node_i)][(level_j, node_j)] = random.random()
 
     def compute_cross_entropy_cost(self):
+        """ Cross entropy cost
+        """
         cross_entropy_cost = 0.0
         for k in range(len(self.output_layer_array)):
             cross_entropy_cost += self.output_layer_array[k] * np.log(self.output_layer_activation_array[k])
@@ -258,15 +281,16 @@ class BackPropagation:
                 # update the weight connecting node_i to node_j using the cost error derivative
                 self.theta[(level_i, node_i)][(level_j, node_j)] -= self.learning_rate * error_derivative_ij
 
+    # TODO Convert into mini-batch where online is a special case with n=1
     def train_online(self):
         # random initialization of weights
         self.initialize_weights()
 
-        for train_i in range(len(self.train_df)):
+        for train_i in range(len(self.train_data)):
             if train_i % 10 == 9:
                 print "train_i: ", train_i
             # assign input layer
-            self.input_layer_array = self.train_df[train_i, ]
+            self.input_layer_array = self.train_data[train_i, ]
             # assign output layer
             self.output_layer_array = np.zeros(self.n_output_nodes)
             self.output_layer_array[self.train_label_array[train_i]] = 1.0
@@ -275,16 +299,17 @@ class BackPropagation:
             for level in range(1, self.n_hidden_layers+1):
                 self.compute_hidden_layer(level)
             self.compute_output_layer()
-            cross_entropy_cost = self.compute_cross_entropy_cost()
-            print "train_i: {0} :: cost: {1}".format(train_i, cross_entropy_cost)
+            if train_i % 10 == 9:
+                cross_entropy_cost = self.compute_cross_entropy_cost()
+                print "train_i: {0} :: cost: {1}".format(train_i, cross_entropy_cost)
             # backward pass
             self.update_weights()
 
     def validate(self):
         incorrect_prediction_count = 0
-        for validate_i in range(len(self.validation_df)):
+        for validate_i in range(len(self.validation_data)):
             # assign input layer
-            self.input_layer_array = self.validation_df[validate_i]
+            self.input_layer_array = self.validation_data[validate_i]
             # forward pass
             for level in range(1, self.n_hidden_layers + 1):
                 self.compute_hidden_layer(level)
@@ -297,16 +322,17 @@ class BackPropagation:
             if true_class != predicted_class:
                 incorrect_prediction_count += 1
 
-        print "incorrect prediction: {0} %".format(incorrect_prediction_count*100/len(self.validation_df))
+        print "incorrect prediction: {0} %".format(incorrect_prediction_count*100/len(self.validation_data))
 
 if __name__ == "__main__":
     digit_recognizer_obj = DigitRecognizer("data", "train_trial.csv")
-    digit_recognizer_obj.load_train_data()
-    print "row count of train file: ", len(digit_recognizer_obj.train_df.index)
-    print "columns count of data: ", len(digit_recognizer_obj.train_df.columns)-1  # One column represents label
-    digit_recognizer_obj.split_train_validation()
-    back_propagation_obj = BackPropagation(train_df=digit_recognizer_obj.train_data_df,
-                                           validation_df=digit_recognizer_obj.validation_data_df,
+    train_file_data_df = digit_recognizer_obj.load_train_data()
+    print "row count of train file: ", len(train_file_data_df.index)
+    print "columns count of data: ", len(train_file_data_df.columns)-1  # One column represents label
+    digit_recognizer_obj.split_train_validation(train_file_data_df)
+    digit_recognizer_obj.dimensionality_reduction()
+    back_propagation_obj = BackPropagation(train_data=digit_recognizer_obj.train_features_reduced_data,
+                                           validation_data=digit_recognizer_obj.validation_features_reduced_data,
                                            train_label_array=digit_recognizer_obj.train_label_array,
                                            validation_label_array=digit_recognizer_obj.validation_label_array
                                            )
@@ -319,6 +345,8 @@ TODO:
     - Dimensionality reduction using PCA, random projection
     - Plot t-sne from scikit-learn
     - Create confusion matrix
+    - In online weight update version, think on how many samples should we calculate the cost. Only computing cost for
+        the current sample doesn't seems to be good enough.
 
 Current implementation:
     - single hidden layer, softmax backpropagation with cross entropy as cost function
@@ -344,4 +372,7 @@ Resource:
 
     Explanation of fit, fit_transform in scikit:
         https://datascience.stackexchange.com/questions/12321/difference-between-fit-and-fit-transform-in-scikit-learn-models
+
+    pandas:
+        https://stackoverflow.com/questions/19609631/python-changing-row-index-of-pandas-data-frame
 """
