@@ -6,19 +6,23 @@ import random
 from sklearn.cross_validation import train_test_split   # In the new version this has been moved into model_selection
 from sklearn.decomposition import PCA
 import matplotlib.pyplot as plt
+from keras.datasets import mnist
+from keras.models import Sequential
+from keras.layers import Dense
+from keras.layers import Dropout
+from keras.layers import Flatten
+from keras.layers.convolutional import Convolution2D
+from keras.layers.convolutional import MaxPooling2D
+from keras.utils import np_utils
 
 
 class DigitRecognizer:
     def __init__(self, data_folder="data", train_file="train.csv", test_file="test.csv"):
         # data files
         self.data_folder = data_folder
+        # train_file is being split into train, validation sets
         self.train_file = train_file
         self.test_file = test_file
-
-        """
-        self.train_df = None
-        self.test_df = None
-        """
 
         self.train_features_data = None
         self.validation_features_data = None
@@ -29,11 +33,6 @@ class DigitRecognizer:
 
         self.train_label_array = None
         self.validation_label_array = None
-
-        # train_file is being split into train, validation sets
-        # The following contains the data after dimensionality reduction
-        # self.train_data_df = None
-        # self.validation_data_df = None
 
     def load_train_data(self):
         """ Load train_file data
@@ -84,9 +83,12 @@ class DigitRecognizer:
         assert self.train_label_array is not None, "pre-requisite: split the data using the function: split_train_validation()"
         assert self.validation_label_array is not None, "pre-requisite: split the data using the function: split_train_validation()"
 
-        # Normalize by dividing (max-min) i.e. (255-0)
+        # min-max normalization
+        # TODO move min-max normalization into separate function
+        # TODO assert if data type is int
         self.train_features_data /= 255
         self.validation_features_data /= 255
+
         pca = PCA(n_components=proportion_variance_explained_threshold)
         # Fit PCA on train set
         self.train_features_reduced_data = pca.fit_transform(self.train_features_data)
@@ -324,20 +326,75 @@ class BackPropagation:
 
         print "incorrect prediction: {0} %".format(incorrect_prediction_count*100/len(self.validation_data))
 
+
+class CNN:
+    """Based on Deep Learning with Python by Jason Brownlee (www.machinelearningmastery.com)
+    """
+    def __init__(self, train_data, validation_data, train_label_array, validation_label_array, channels_image=1, width_image=28, height_image=28):
+        """Initialize Convolutional Neural Network
+
+        Parameters
+        ----------
+        train_data : numpy.ndarray, shape(n_train_samples, n_features)
+        validation_data : numpy.ndarray, shape(n_validation_samples, n_features)
+        """
+        # TODO check for data type of train/validation data. Should be of type float
+        # reshape to [samples][channels][width][height]
+        self.train_X = train_data.reshape(train_data.shape[0], channels_image, width_image, height_image)
+        self.validation_X = validation_data.reshape(validation_data.shape[0], channels_image, width_image, height_image)
+        self.train_label_matrix = np_utils.to_categorical(train_label_array)
+        self.validation_label_matrix = np_utils.to_categorical(validation_label_array)
+        assert self.train_label_matrix.shape[1] == 10, "classes: 0-9 expected"
+        self.channels_image = channels_image
+        self.width_image = width_image
+        self.height_image = height_image
+        # min-max normalization
+        self.train_X /= 255
+        self.validation_X /= 255
+
+    def create_model(self):
+        model = Sequential()
+        # https://github.com/fchollet/keras/issues/2558 (Added dim_ordering="th" which represents single channel
+        model.add(Convolution2D(32, 5, 5, border_mode="valid", input_shape=(1, self.width_image, self.height_image),
+                                activation="relu", dim_ordering="th"))
+        model.add(MaxPooling2D(pool_size=(2, 2)))
+        model.add(Dropout(0.2))
+        model.add(Flatten())
+        model.add(Dense(128, activation="relu"))
+        model.add(Dense(10, activation="softmax"))
+        # compile model
+        model.compile(optimizer="adam", loss="categorical_crossentropy", metrics=["accuracy"])
+        return model
+
+    def fit_model(self):
+        model = self.create_model()
+        model.fit(self.train_X, self.train_label_matrix, validation_data=(self.validation_X, self.validation_label_matrix), nb_epoch=2, batch_size=300, verbose=2)
+        scores = model.evaluate(self.validation_X, self.validation_label_matrix, verbose=0)
+        print "CNN model error: %.2f" % (100-scores[1]*100)
+
+
 if __name__ == "__main__":
     digit_recognizer_obj = DigitRecognizer("data", "train_trial.csv")
     train_file_data_df = digit_recognizer_obj.load_train_data()
     print "row count of train file: ", len(train_file_data_df.index)
     print "columns count of data: ", len(train_file_data_df.columns)-1  # One column represents label
     digit_recognizer_obj.split_train_validation(train_file_data_df)
-    digit_recognizer_obj.dimensionality_reduction()
-    back_propagation_obj = BackPropagation(train_data=digit_recognizer_obj.train_features_reduced_data,
-                                           validation_data=digit_recognizer_obj.validation_features_reduced_data,
-                                           train_label_array=digit_recognizer_obj.train_label_array,
-                                           validation_label_array=digit_recognizer_obj.validation_label_array
-                                           )
-    back_propagation_obj.train_online()
-    back_propagation_obj.validate()
+    method_chosen = 1
+    if method_chosen == 0:
+        digit_recognizer_obj.dimensionality_reduction()
+        back_propagation_obj = BackPropagation(train_data=digit_recognizer_obj.train_features_reduced_data,
+                                               validation_data=digit_recognizer_obj.validation_features_reduced_data,
+                                               train_label_array=digit_recognizer_obj.train_label_array,
+                                               validation_label_array=digit_recognizer_obj.validation_label_array
+                                               )
+        back_propagation_obj.train_online()
+        back_propagation_obj.validate()
+    else:
+        cnn_obj = CNN(train_data=digit_recognizer_obj.train_features_data,
+                      validation_data=digit_recognizer_obj.validation_features_data,
+                      train_label_array=digit_recognizer_obj.train_label_array,
+                      validation_label_array=digit_recognizer_obj.validation_label_array)
+        cnn_obj.fit_model()
 
 """
 TODO:
