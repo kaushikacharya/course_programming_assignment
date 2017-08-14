@@ -76,7 +76,7 @@ class DigitRecognizer:
         self.validation_features_data = features_data_df.loc[validation_index_array, ].values.astype(float)
 
     # TODO Allow other methods for dimensionality reduction e.g. random projection
-    def dimensionality_reduction(self, proportion_variance_explained_threshold = 0.9):
+    def dimensionality_reduction(self, proportion_variance_explained_threshold=0.9):
         """ Dimensionality reduction of train, validation data
             Currently PCA is used.
         """
@@ -94,10 +94,16 @@ class DigitRecognizer:
         self.train_features_reduced_data = pca.fit_transform(self.train_features_data)
         # Now use the PCA model fitted on train set to transform validation set
         self.validation_features_reduced_data = pca.transform(self.validation_features_data)
+        assert self.train_features_reduced_data.shape[1] == self.validation_features_reduced_data.shape[1], \
+            "Both training and validation set should be reduced to same number of dimensions after dimensionality" \
+            " reduction"
+        print "dimensions post PCA: {0} using proportion variance explained={1}".format(
+            self.train_features_reduced_data.shape[1], proportion_variance_explained_threshold)
 
 
 class BackPropagation:
-    def __init__(self, train_data, validation_data, train_label_array, validation_label_array, learning_rate=0.05):
+    def __init__(self, train_data, validation_data, train_label_array, validation_label_array, learning_rate=0.05,
+                 batch_size=500, n_epoch=5):
         """ Initialize BackPropagation
 
             Parameters
@@ -119,6 +125,10 @@ class BackPropagation:
         self.n_hidden_nodes = None
         # weights
         self.theta = dict()
+        # error derivative wrt weights
+        self.error_derivative_wrt_weight = list()
+        self.batch_size = batch_size
+        self.n_epoch = n_epoch
         self.learning_rate = learning_rate
         # activation and z values for the levels
         # output layer
@@ -182,8 +192,22 @@ class BackPropagation:
                     # current range: (0,1)
                     self.theta[(level_i, node_i)][(level_j, node_j)] = random.random()
 
+    def initialize_error_derivatives(self):
+        """Initialize error derivatives to zero
+            Before every mini-batch weight update initialize error derivatives to zeros.
+        """
+        for level_i in range(self.n_hidden_layers+1):
+            n_nodes_lower_level = self.get_number_of_nodes(level_i)
+            level_j = level_i + 1
+            n_nodes_upper_level = self.get_number_of_nodes(level_j)
+            error_derivative_ij = np.zeros((n_nodes_lower_level, n_nodes_upper_level))
+            if len(self.error_derivative_wrt_weight) > level_i:
+                self.error_derivative_wrt_weight[level_i] = error_derivative_ij
+            else:
+                self.error_derivative_wrt_weight.append(error_derivative_ij)
+
     def compute_cross_entropy_cost(self):
-        """ Cross entropy cost
+        """ Cross entropy cost for a single training sample
         """
         cross_entropy_cost = 0.0
         for k in range(len(self.output_layer_array)):
@@ -255,7 +279,7 @@ class BackPropagation:
         self.output_layer_activation_array = y_array
 
     # TODO Handle weight update for multi hidden layers
-    def update_weights(self):
+    def update_weights_online(self):
         """ Current implementation: Online learning
             Assumption: single hidden layer
         """
@@ -283,6 +307,50 @@ class BackPropagation:
                 # update the weight connecting node_i to node_j using the cost error derivative
                 self.theta[(level_i, node_i)][(level_j, node_j)] -= self.learning_rate * error_derivative_ij
 
+    # TODO Handle error derivatives wrt weight for multi hidden layers
+    def update_error_derivatives(self, batch_size):
+        """Update error derivatives wrt weight
+            For mini-batch we average error derivatives over the mini-batch size.
+            This function is called for each of the training samples of the mini-batch
+            Once its called for each of the samples on the mini-batch, we update the weights
+            Assumption: Single hidden layer
+        """
+        # Error derivatives wrt the weights connecting the top most hidden layer to the output layer
+        level_k = self.n_hidden_layers + 1
+        level_j = self.n_hidden_layers
+        for node_k in range(0, self.n_output_nodes):
+            yk_minus_tk = self.output_layer_activation_array[node_k] - self.output_layer_array[node_k]
+            for node_j in range(0, self.n_hidden_nodes):
+                y_j = self.hidden_layer_activation_array[self.n_hidden_layers - 1][node_j]
+                self.error_derivative_wrt_weight[level_j][node_j, node_k] += yk_minus_tk * y_j / batch_size
+
+        # Update of the weights connecting the input layer to the single hidden layer
+        # For multiple hidden layers, equation will be different
+        level_i = 0  # input layer
+        for node_j in range(0, self.n_hidden_nodes):
+            y_j = self.hidden_layer_activation_array[0][node_j]
+            for node_i in range(0, self.n_input_nodes):
+                y_i = self.input_layer_array[node_i]
+                error_derivative_ij = 0.0
+                for node_k in range(0, self.n_output_nodes):
+                    w_jk = self.theta[(level_j, node_j)][(level_k, node_k)]
+                    yk_minus_tk = self.output_layer_activation_array[node_k] - self.output_layer_array[node_k]
+                    error_derivative_ij += w_jk * yk_minus_tk * y_j * (1.0 - y_j) * y_i
+                # update the weight connecting node_i to node_j using the cost error derivative
+                self.error_derivative_wrt_weight[level_i][node_i, node_j] += error_derivative_ij / batch_size
+
+    # TODO Handle weight update for multi hidden layers
+    def update_weights(self):
+        """Update weights for the mini-batch after error derivatives have been computed for each of the samples of the mini-batch
+        """
+        for level_i in range(self.n_hidden_layers+1):
+            level_j = level_i + 1
+            n_nodes_level_i = self.get_number_of_nodes(level_i)
+            n_nodes_level_j = self.get_number_of_nodes(level_j)
+            for node_j in range(n_nodes_level_j):
+                for node_i in range(n_nodes_level_i):
+                    self.theta[(level_i, node_i)][(level_j, node_j)] -= self.learning_rate * self.error_derivative_wrt_weight[level_i][node_i, node_j]
+
     # TODO Convert into mini-batch where online is a special case with n=1
     def train_online(self):
         # random initialization of weights
@@ -305,9 +373,61 @@ class BackPropagation:
                 cross_entropy_cost = self.compute_cross_entropy_cost()
                 print "train_i: {0} :: cost: {1}".format(train_i, cross_entropy_cost)
             # backward pass
-            self.update_weights()
+            self.update_weights_online()
 
-    def validate(self):
+    # TODO create mini-batch randomly instead of only in sequence
+    def train_mini_batch(self):
+        # random initialization of weights
+        self.initialize_weights()
+
+        # TODO instead of fixed number of epochs, better to have a stopping criterion and max number of epochs
+        n_mini_batch = len(self.train_data)/self.batch_size
+        for epoch_i in range(self.n_epoch):
+            print "epoch # ", epoch_i
+            for mini_batch_i in range(n_mini_batch):
+                print "mini batch # ", mini_batch_i
+                # create a mini-batch [train_i, train_j)
+                train_i = mini_batch_i*self.batch_size
+                if mini_batch_i < n_mini_batch-1:
+                    train_j = (mini_batch_i+1)*self.batch_size
+                else:
+                    # in case train data size is not exactly divisible to batch_size, we take till the end of train_data
+                    # for the last mini-batch
+                    train_j = len(self.train_data)
+
+                # set error derivatives to zero
+                self.initialize_error_derivatives()
+
+                # iterate over each of the training samples in the mini-batch and compute error derivatives
+                # we average the error derivatives and update weights using the average
+                mini_batch_size = train_j - train_i
+                cross_entropy_mini_batch_cost = 0.0
+                while train_i < train_j:
+                    # assign input layer
+                    self.input_layer_array = self.train_data[train_i, ]
+                    # assign output layer
+                    self.output_layer_array = np.zeros(self.n_output_nodes)
+                    self.output_layer_array[self.train_label_array[train_i]] = 1.0
+
+                    # forward pass
+                    for level in range(1, self.n_hidden_layers + 1):
+                        self.compute_hidden_layer(level)
+                    self.compute_output_layer()
+
+                    # backward pass: update error derivatives
+                    self.update_error_derivatives(mini_batch_size)
+
+                    cross_entropy_mini_batch_cost += self.compute_cross_entropy_cost()
+
+                    train_i += 1
+
+                # TODO Also mention the accuracy
+                print "\t average cost for mini train batch: ", cross_entropy_mini_batch_cost/mini_batch_size
+                # Now update the weight based on error derivatives of the current mini-batch
+                self.update_weights()
+
+    # TODO Should evaluate accuracy on training set also.
+    def evaluate(self):
         incorrect_prediction_count = 0
         for validate_i in range(len(self.validation_data)):
             # assign input layer
@@ -329,6 +449,7 @@ class BackPropagation:
 
 class CNN:
     """Based on Deep Learning with Python by Jason Brownlee (www.machinelearningmastery.com)
+        Keras version used: 1.1.1
     """
     def __init__(self, train_data, validation_data, train_label_array, validation_label_array, channels_image=1, width_image=28, height_image=28):
         """Initialize Convolutional Neural Network
@@ -354,7 +475,7 @@ class CNN:
 
     def create_model(self):
         model = Sequential()
-        # https://github.com/fchollet/keras/issues/2558 (Added dim_ordering="th" which represents single channel
+        # https://github.com/fchollet/keras/issues/2558 (Added dim_ordering="th" which represents single channel)
         model.add(Convolution2D(32, 5, 5, border_mode="valid", input_shape=(1, self.width_image, self.height_image),
                                 activation="relu", dim_ordering="th"))
         model.add(MaxPooling2D(pool_size=(2, 2)))
@@ -379,16 +500,19 @@ if __name__ == "__main__":
     print "row count of train file: ", len(train_file_data_df.index)
     print "columns count of data: ", len(train_file_data_df.columns)-1  # One column represents label
     digit_recognizer_obj.split_train_validation(train_file_data_df)
-    method_chosen = 1
+
+    method_chosen = 0
     if method_chosen == 0:
         digit_recognizer_obj.dimensionality_reduction()
         back_propagation_obj = BackPropagation(train_data=digit_recognizer_obj.train_features_reduced_data,
                                                validation_data=digit_recognizer_obj.validation_features_reduced_data,
                                                train_label_array=digit_recognizer_obj.train_label_array,
-                                               validation_label_array=digit_recognizer_obj.validation_label_array
+                                               validation_label_array=digit_recognizer_obj.validation_label_array,
+                                               batch_size=30
                                                )
-        back_propagation_obj.train_online()
-        back_propagation_obj.validate()
+        # back_propagation_obj.train_online()
+        back_propagation_obj.train_mini_batch()
+        back_propagation_obj.evaluate()
     else:
         cnn_obj = CNN(train_data=digit_recognizer_obj.train_features_data,
                       validation_data=digit_recognizer_obj.validation_features_data,
@@ -421,6 +545,9 @@ Resource:
 
     Weight Update in mini-batch:
         https://stats.stackexchange.com/questions/266968/how-does-minibatch-gradient-descent-update-the-weights-for-each-example-in-a-bat
+        https://stats.stackexchange.com/questions/140811/how-large-should-the-batch-size-be-for-stochastic-gradient-descent ** (nice explanation)
+        Suggestion for tuning hyper-parameters: (a) learning rate  (b) batch size
+        http://machinelearningmastery.com/gentle-introduction-mini-batch-gradient-descent-configure-batch-size/
 
     Applying PCA to test data:
         https://stats.stackexchange.com/questions/144439/applying-pca-to-test-data-for-classification-purposes
