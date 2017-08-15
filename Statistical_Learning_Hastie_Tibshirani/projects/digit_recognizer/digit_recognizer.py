@@ -103,7 +103,7 @@ class DigitRecognizer:
 
 class BackPropagation:
     def __init__(self, train_data, validation_data, train_label_array, validation_label_array, learning_rate=0.05,
-                 batch_size=500, n_epoch=5):
+                 batch_size=500, n_epoch=5, velocity_decay_rate=0.9):
         """ Initialize BackPropagation
 
             Parameters
@@ -124,12 +124,16 @@ class BackPropagation:
         self.n_output_nodes = 10  # digits 0 - 9
         self.n_hidden_nodes = None
         # weights
+        # TODO change data type of theta into list of numpy ndarray. This will improve memory management
         self.theta = dict()
         # error derivative wrt weights
-        self.error_derivative_wrt_weight = list()
+        self.error_derivative_wrt_weight = list()  # list of numpy ndarray
+        # previous weight change
+        self.prev_theta_update = list()  # list of numpy ndarray
         self.batch_size = batch_size
         self.n_epoch = n_epoch
         self.learning_rate = learning_rate
+        self.velocity_decay_rate = velocity_decay_rate  # used by momentum
         # activation and z values for the levels
         # output layer
         self.output_layer_activation_array = np.zeros(self.n_output_nodes)
@@ -165,14 +169,17 @@ class BackPropagation:
             self.hidden_layer_z_array.append(np.zeros(self.n_hidden_nodes))
 
     def get_number_of_nodes(self, level):
+        """Get number of nodes for a given level
+            Assumption: Same number of nodes at hidden layers.
+        """
         if level == 0:
             return self.n_input_nodes
-        elif level == 1:
-            return self.n_hidden_nodes
-        elif level == 2:
+        elif level == self.n_hidden_layers+1:
             return self.n_output_nodes
+        elif level > 0 & level <= self.n_hidden_layers:
+            return self.n_hidden_nodes
         else:
-            assert False, "Current implementation has a single hidden layer"
+            assert False, "levels present: {0} - {1}".format(0, self.n_hidden_layers+1)
 
     def initialize_weights(self):
         """ Randomly initialize weights
@@ -205,6 +212,17 @@ class BackPropagation:
                 self.error_derivative_wrt_weight[level_i] = error_derivative_ij
             else:
                 self.error_derivative_wrt_weight.append(error_derivative_ij)
+
+    def initialize_previous_weight_update(self):
+        """Stores weight update in previous step. Required for using momentum.
+        """
+        for level_i in range(self.n_hidden_nodes+1):
+            level_j = level_i + 1
+            n_nodes_lower_level = self.get_number_of_nodes(level_i)
+            n_nodes_upper_level = self.get_number_of_nodes(level_j)
+            weight_update_level_i_to_j = np.zeros((n_nodes_lower_level, n_nodes_upper_level))
+            assert len(self.prev_theta_update) == level_i, "expected len(self.prev_weight_update) = level_i"
+            self.prev_theta_update.append(weight_update_level_i_to_j)
 
     def compute_cross_entropy_cost(self):
         """ Cross entropy cost for a single training sample
@@ -311,7 +329,7 @@ class BackPropagation:
     def update_error_derivatives(self, batch_size):
         """Update error derivatives wrt weight
             For mini-batch we average error derivatives over the mini-batch size.
-            This function is called for each of the training samples of the mini-batch
+            This function is called online i.e. for each of the training samples of the mini-batch
             Once its called for each of the samples on the mini-batch, we update the weights
             Assumption: Single hidden layer
         """
@@ -349,7 +367,11 @@ class BackPropagation:
             n_nodes_level_j = self.get_number_of_nodes(level_j)
             for node_j in range(n_nodes_level_j):
                 for node_i in range(n_nodes_level_i):
-                    self.theta[(level_i, node_i)][(level_j, node_j)] -= self.learning_rate * self.error_derivative_wrt_weight[level_i][node_i, node_j]
+                    weight_update = self.velocity_decay_rate * self.prev_theta_update[level_i][node_i, node_j] - \
+                                    self.learning_rate * self.error_derivative_wrt_weight[level_i][node_i, node_j]
+                    self.theta[(level_i, node_i)][(level_j, node_j)] += weight_update
+                    # save this update for usage in next iteration of update at [level_i][node_i, node_j] connection
+                    self.prev_theta_update[level_i][node_i, node_j] = weight_update
 
     # TODO Convert into mini-batch where online is a special case with n=1
     def train_online(self):
@@ -379,6 +401,7 @@ class BackPropagation:
     def train_mini_batch(self):
         # random initialization of weights
         self.initialize_weights()
+        self.initialize_previous_weight_update()
 
         # TODO instead of fixed number of epochs, better to have a stopping criterion and max number of epochs
         n_mini_batch = len(self.train_data)/self.batch_size
@@ -418,8 +441,15 @@ class BackPropagation:
                     self.update_error_derivatives(mini_batch_size)
 
                     cross_entropy_mini_batch_cost += self.compute_cross_entropy_cost()
-
                     train_i += 1
+
+                """
+                # print the error derivatives
+                for level_i in range(self.n_hidden_layers + 1):
+                    level_j = level_i + 1
+                    print [",".join([str(x) for x in self.error_derivative_wrt_weight[level_i][i, ]])
+                           for i in range(self.error_derivative_wrt_weight[level_i].shape[0])]
+                """
 
                 # TODO Also mention the accuracy
                 print "\t average cost for mini train batch: ", cross_entropy_mini_batch_cost/mini_batch_size
