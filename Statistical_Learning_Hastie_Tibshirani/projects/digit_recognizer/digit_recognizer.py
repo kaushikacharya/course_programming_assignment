@@ -6,7 +6,6 @@ import random
 from sklearn.cross_validation import train_test_split   # In the new version this has been moved into model_selection
 from sklearn.decomposition import PCA
 import matplotlib.pyplot as plt
-from keras.datasets import mnist
 from keras.models import Sequential
 from keras.layers import Dense
 from keras.layers import Dropout
@@ -103,7 +102,8 @@ class DigitRecognizer:
 
 class BackPropagation:
     def __init__(self, train_data, validation_data, train_label_array, validation_label_array, learning_rate=0.05,
-                 batch_size=500, n_epoch=5, velocity_decay_rate=0.9):
+                 batch_size=500, n_epoch=5, velocity_decay_rate=0.9, delta_local_gain=0.05, min_local_weight_gain=0.1,
+                 max_local_weight_gain=10):
         """ Initialize BackPropagation
 
             Parameters
@@ -123,17 +123,24 @@ class BackPropagation:
         self.n_input_nodes = train_data.shape[1]
         self.n_output_nodes = 10  # digits 0 - 9
         self.n_hidden_nodes = None
+
+        # list of numpy ndarray; index=i represent connections between level_i and level_i+1
         # weights
-        # TODO change data type of theta into list of numpy ndarray. This will improve memory management
-        self.theta = dict()
+        self.theta = list()
         # error derivative wrt weights
-        self.error_derivative_wrt_weight = list()  # list of numpy ndarray
+        self.error_derivative_wrt_weight = list()
+        self.sign_error_derivative_wrt_weight = list()
+        self.local_weight_gain = list()
         # previous weight change
         self.prev_theta_update = list()  # list of numpy ndarray
+
         self.batch_size = batch_size
         self.n_epoch = n_epoch
         self.learning_rate = learning_rate
         self.velocity_decay_rate = velocity_decay_rate  # used by momentum
+        self.delta_local_gain = delta_local_gain  # used for individual learning rates
+        self.min_local_weight_gain = min_local_weight_gain
+        self.max_local_weight_gain = max_local_weight_gain
         # activation and z values for the levels
         # output layer
         self.output_layer_activation_array = np.zeros(self.n_output_nodes)
@@ -192,12 +199,26 @@ class BackPropagation:
             n_nodes_lower_level = self.get_number_of_nodes(level_i)
             level_j = level_i + 1
             n_nodes_upper_level = self.get_number_of_nodes(level_j)
+            theta_level_i_to_j = np.zeros((n_nodes_lower_level, n_nodes_upper_level))
             for node_i in range(0, n_nodes_lower_level):
-                self.theta[(level_i, node_i)] = dict()
                 for node_j in range(0, n_nodes_upper_level):
                     # TODO: what should be the range of values for weight initialization to be small
                     # current range: (0,1)
-                    self.theta[(level_i, node_i)][(level_j, node_j)] = random.random()
+                    theta_level_i_to_j[node_i, node_j] = random.random()
+            # Now append the weight matrix for the connections between nodes of level_i with nodes of level_j
+            self.theta.append(theta_level_i_to_j)
+
+    def initialize_local_weight_gain(self):
+        """Initialize local weight gain for each connection as 1
+        """
+        for level_i in range(self.n_hidden_layers+1):
+            level_j = level_i + 1
+            n_nodes_lower_level = self.get_number_of_nodes(level_i)
+            n_nodes_upper_level = self.get_number_of_nodes(level_j)
+            local_weight_gain_i_to_j = np.ones((n_nodes_lower_level, n_nodes_upper_level))
+            assert len(self.local_weight_gain) == level_i, "expected len(self.local_weight_gain) = level_i." \
+                                                           " This initialization function needs to be called only once"
+            self.local_weight_gain.append(local_weight_gain_i_to_j)
 
     def initialize_error_derivatives(self):
         """Initialize error derivatives to zero
@@ -216,7 +237,7 @@ class BackPropagation:
     def initialize_previous_weight_update(self):
         """Stores weight update in previous step. Required for using momentum.
         """
-        for level_i in range(self.n_hidden_nodes+1):
+        for level_i in range(self.n_hidden_layers+1):
             level_j = level_i + 1
             n_nodes_lower_level = self.get_number_of_nodes(level_i)
             n_nodes_upper_level = self.get_number_of_nodes(level_j)
@@ -250,19 +271,19 @@ class BackPropagation:
 
             # For each of the hidden nodes of current hidden layer compute its z
             z_array = np.zeros(self.n_hidden_nodes)
-            for j in range(0, self.n_hidden_nodes):
+            for node_j in range(0, self.n_hidden_nodes):
                 # extract the weight array based on the edges connecting the nodes from previous layer to the j'th node
                 # of current hidden layer
                 weight_array = np.zeros(self.n_input_nodes)
-                for i in range(0, self.n_input_nodes):
-                    weight_array[i] = self.theta[(0, i)][(cur_level, j)]
+                for node_i in range(0, self.n_input_nodes):
+                    weight_array[node_i] = self.theta[0][node_i, node_j]
 
-                z_array[j] = np.dot(y_array, weight_array)
+                z_array[node_j] = np.dot(y_array, weight_array)
 
             # Now compute the y array for this hidden layer
             y_array = np.zeros(self.n_hidden_nodes)
-            for j in range(0, self.n_hidden_nodes):
-                y_array[j] = self.compute_sigmoid(z_array[j])
+            for node_j in range(0, self.n_hidden_nodes):
+                y_array[node_j] = self.compute_sigmoid(z_array[ node_j])
 
             self.hidden_layer_z_array[0] = z_array
             self.hidden_layer_activation_array[0] = y_array
@@ -281,7 +302,7 @@ class BackPropagation:
             # extract the weight array
             weight_array = np.zeros(self.n_hidden_nodes)
             for j in range(0, self.n_hidden_nodes):
-                weight_array[j] = self.theta[(self.n_hidden_layers, j)][(self.n_hidden_layers+1, k)]
+                weight_array[j] = self.theta[self.n_hidden_layers][j, k]
 
             z_array[k] = np.dot(y_array, weight_array)
 
@@ -308,7 +329,7 @@ class BackPropagation:
             yk_minus_tk = self.output_layer_activation_array[node_k] - self.output_layer_array[node_k]
             for node_j in range(0, self.n_hidden_nodes):
                 y_j = self.hidden_layer_activation_array[self.n_hidden_layers-1][node_j]
-                self.theta[(level_j, node_j)][(level_k, node_k)] -= self.learning_rate * yk_minus_tk * y_j
+                self.theta[level_j][node_j, node_k] -= self.learning_rate * yk_minus_tk * y_j
 
         # Update of the weights connecting the input layer to the single hidden layer
         # For multiple hidden layers, equation will be different
@@ -319,11 +340,11 @@ class BackPropagation:
                 y_i = self.input_layer_array[node_i]
                 error_derivative_ij = 0.0
                 for node_k in range(0, self.n_output_nodes):
-                    w_jk = self.theta[(level_j, node_j)][(level_k, node_k)]
+                    w_jk = self.theta[level_j][node_j, node_k]
                     yk_minus_tk = self.output_layer_activation_array[node_k] - self.output_layer_array[node_k]
                     error_derivative_ij += w_jk * yk_minus_tk * y_j * (1.0 - y_j) * y_i
                 # update the weight connecting node_i to node_j using the cost error derivative
-                self.theta[(level_i, node_i)][(level_j, node_j)] -= self.learning_rate * error_derivative_ij
+                self.theta[level_i][node_i, node_j] -= self.learning_rate * error_derivative_ij
 
     # TODO Handle error derivatives wrt weight for multi hidden layers
     def update_error_derivatives(self, batch_size):
@@ -349,13 +370,44 @@ class BackPropagation:
             y_j = self.hidden_layer_activation_array[0][node_j]
             for node_i in range(0, self.n_input_nodes):
                 y_i = self.input_layer_array[node_i]
+                # sum over the error derivative on the connections from node_j to the nodes in its upper layer i.e. k
                 error_derivative_ij = 0.0
                 for node_k in range(0, self.n_output_nodes):
-                    w_jk = self.theta[(level_j, node_j)][(level_k, node_k)]
+                    w_jk = self.theta[level_j][node_j, node_k]
                     yk_minus_tk = self.output_layer_activation_array[node_k] - self.output_layer_array[node_k]
                     error_derivative_ij += w_jk * yk_minus_tk * y_j * (1.0 - y_j) * y_i
                 # update the weight connecting node_i to node_j using the cost error derivative
                 self.error_derivative_wrt_weight[level_i][node_i, node_j] += error_derivative_ij / batch_size
+
+    def update_local_weight_gain(self, prev_error_derivative_wrt_weight):
+        """Individual learning rates implemented using local weight gain
+            Based on the idea whether direction of error derivatives are same or has changed
+            If same: local weight gain is increased additively.
+            If different: local weight gain is decreased multiplicatively.
+        """
+        # case: error derivative wrt weight hasn't been computed yet.
+        if len(prev_error_derivative_wrt_weight) == 0:
+            return
+
+        for level_i in range(self.n_hidden_layers+1):
+            level_j = level_i + 1
+            n_nodes_level_i = self.get_number_of_nodes(level_i)
+            n_nodes_level_j = self.get_number_of_nodes(level_j)
+            for node_j in range(n_nodes_level_j):
+                for node_i in range(n_nodes_level_i):
+                    sign_prev_error_derivative = np.sign(prev_error_derivative_wrt_weight[level_i][node_i, node_j])
+                    sign_cur_error_derivative = np.sign(self.error_derivative_wrt_weight[level_i][node_i, node_j])
+
+                    if sign_prev_error_derivative * sign_cur_error_derivative == 1:
+                        self.local_weight_gain[level_i][node_i, node_j] += self.delta_local_gain
+                        if self.max_local_weight_gain < self.local_weight_gain[level_i][node_i, node_j]:
+                            self.local_weight_gain[level_i][node_i, node_j] = self.max_local_weight_gain
+                    elif sign_prev_error_derivative * sign_cur_error_derivative == -1:
+                        self.local_weight_gain[level_i][node_i, node_j] *= (1.0 - self.delta_local_gain)
+                        if self.local_weight_gain[level_i][node_i, node_j] < self.min_local_weight_gain:
+                            self.local_weight_gain[level_i][node_i, node_j] = self.min_local_weight_gain
+                    else:
+                        pass
 
     # TODO Handle weight update for multi hidden layers
     def update_weights(self):
@@ -368,40 +420,20 @@ class BackPropagation:
             for node_j in range(n_nodes_level_j):
                 for node_i in range(n_nodes_level_i):
                     weight_update = self.velocity_decay_rate * self.prev_theta_update[level_i][node_i, node_j] - \
-                                    self.learning_rate * self.error_derivative_wrt_weight[level_i][node_i, node_j]
-                    self.theta[(level_i, node_i)][(level_j, node_j)] += weight_update
+                                    self.learning_rate * self.local_weight_gain[level_i][node_i, node_j] *\
+                                    self.error_derivative_wrt_weight[level_i][node_i, node_j]
+                    self.theta[level_i][node_i, node_j] += weight_update
                     # save this update for usage in next iteration of update at [level_i][node_i, node_j] connection
                     self.prev_theta_update[level_i][node_i, node_j] = weight_update
 
-    # TODO Convert into mini-batch where online is a special case with n=1
-    def train_online(self):
-        # random initialization of weights
-        self.initialize_weights()
-
-        for train_i in range(len(self.train_data)):
-            if train_i % 10 == 9:
-                print "train_i: ", train_i
-            # assign input layer
-            self.input_layer_array = self.train_data[train_i, ]
-            # assign output layer
-            self.output_layer_array = np.zeros(self.n_output_nodes)
-            self.output_layer_array[self.train_label_array[train_i]] = 1.0
-
-            # forward pass
-            for level in range(1, self.n_hidden_layers+1):
-                self.compute_hidden_layer(level)
-            self.compute_output_layer()
-            if train_i % 10 == 9:
-                cross_entropy_cost = self.compute_cross_entropy_cost()
-                print "train_i: {0} :: cost: {1}".format(train_i, cross_entropy_cost)
-            # backward pass
-            self.update_weights_online()
-
     # TODO create mini-batch randomly instead of only in sequence
+    #       as shown in "mini-batch gradient descent" section of http://ruder.io/optimizing-gradient-descent/
     def train_mini_batch(self):
         # random initialization of weights
         self.initialize_weights()
         self.initialize_previous_weight_update()
+        # initialize local weight gain for each connection as 1
+        self.initialize_local_weight_gain()
 
         # TODO instead of fixed number of epochs, better to have a stopping criterion and max number of epochs
         n_mini_batch = len(self.train_data)/self.batch_size
@@ -409,7 +441,7 @@ class BackPropagation:
             print "epoch # ", epoch_i
             for mini_batch_i in range(n_mini_batch):
                 print "mini batch # ", mini_batch_i
-                # create a mini-batch [train_i, train_j)
+                # create a mini-batch using the range [train_i, train_j)
                 train_i = mini_batch_i*self.batch_size
                 if mini_batch_i < n_mini_batch-1:
                     train_j = (mini_batch_i+1)*self.batch_size
@@ -418,6 +450,8 @@ class BackPropagation:
                     # for the last mini-batch
                     train_j = len(self.train_data)
 
+                # error derivatives wrt weight calculated for the previous mini-batch
+                prev_error_derivative_wrt_weight = self.error_derivative_wrt_weight
                 # set error derivatives to zero
                 self.initialize_error_derivatives()
 
@@ -454,6 +488,8 @@ class BackPropagation:
                 # TODO Also mention the accuracy
                 print "\t average cost for mini train batch: ", cross_entropy_mini_batch_cost/mini_batch_size
                 # Now update the weight based on error derivatives of the current mini-batch
+                if self.delta_local_gain != 0:
+                    self.update_local_weight_gain(prev_error_derivative_wrt_weight)
                 self.update_weights()
 
     # TODO Should evaluate accuracy on training set also.
@@ -534,13 +570,14 @@ if __name__ == "__main__":
     method_chosen = 0
     if method_chosen == 0:
         digit_recognizer_obj.dimensionality_reduction()
+        # without momentum: use velocity_decay_rate=0
+        # with individual learning rates: use delta_local_gain=0
         back_propagation_obj = BackPropagation(train_data=digit_recognizer_obj.train_features_reduced_data,
                                                validation_data=digit_recognizer_obj.validation_features_reduced_data,
                                                train_label_array=digit_recognizer_obj.train_label_array,
                                                validation_label_array=digit_recognizer_obj.validation_label_array,
-                                               batch_size=30
+                                               batch_size=30, velocity_decay_rate=0
                                                )
-        # back_propagation_obj.train_online()
         back_propagation_obj.train_mini_batch()
         back_propagation_obj.evaluate()
     else:
@@ -558,11 +595,13 @@ TODO:
     - Create confusion matrix
     - In online weight update version, think on how many samples should we calculate the cost. Only computing cost for
         the current sample doesn't seems to be good enough.
+    - Gradient checking: (a) http://cs231n.github.io/neural-networks-3/
+                         (b) In Andrew Ng's programming assignment
+    - config file: use it as now there's too many parameters
 
 Current implementation:
     - single hidden layer, softmax backpropagation with cross entropy as cost function
     - no bias
-    - online training
 
 Resource:
     Number of hidden nodes:
