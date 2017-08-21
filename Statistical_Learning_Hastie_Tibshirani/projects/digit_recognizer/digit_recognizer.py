@@ -129,10 +129,13 @@ class BackPropagation:
         self.theta = list()
         # error derivative wrt weights
         self.error_derivative_wrt_weight = list()
-        self.sign_error_derivative_wrt_weight = list()
         self.local_weight_gain = list()
         # previous weight change
         self.prev_theta_update = list()  # list of numpy ndarray
+
+        # List of numpy array
+        self.error_derivative_wrt_logit = list()
+        self.error_derivative_wrt_activation = list()
 
         self.batch_size = batch_size
         self.n_epoch = n_epoch
@@ -142,6 +145,12 @@ class BackPropagation:
         self.min_local_weight_gain = min_local_weight_gain
         self.max_local_weight_gain = max_local_weight_gain
         # activation and z values for the levels
+
+        # List of arrays
+        # Length of list = number of hidden layers + 2 (one for input layer and another for output layer)
+        self.logit_arrays = list()  # z arrays
+        self.activation_arrays = list()  # y arrays
+        """
         # output layer
         self.output_layer_activation_array = np.zeros(self.n_output_nodes)
         self.output_layer_z_array = np.zeros(self.n_output_nodes)
@@ -149,6 +158,7 @@ class BackPropagation:
         # List of arrays. Length of list = number of hidden layers
         self.hidden_layer_activation_array = list()
         self.hidden_layer_z_array = list()
+        """
         # input layer
         self.input_layer_array = None
         # output layer
@@ -156,24 +166,17 @@ class BackPropagation:
 
         # initialize functions
         self.set_hidden_nodes()
-        self.initialize_hidden_layer()
+        # self.initialize_hidden_layer()
+        self.initialize_logit_activation_arrays()
 
     def set_hidden_nodes(self):
         """ Compute number of nodes for hidden layer
             Method #1: average of input and output nodes
             Method #2: formula which considers number of training samples
+            Assumption: Same number of hidden nodes in each hidden layer
         """
         # Method #1
         self.n_hidden_nodes = int((self.n_input_nodes + self.n_output_nodes) / 2)
-
-    def initialize_hidden_layer(self):
-        """ Initializing y and z for the hidden layers with zeros
-            Assumption: There's equal number of nodes in each of the hidden layers
-        """
-        assert self.n_hidden_nodes is not None, "count of hidden nodes should be done by calling set_hidden_nodes()"
-        for i in range(0, self.n_hidden_layers):
-            self.hidden_layer_activation_array.append(np.zeros(self.n_hidden_nodes))
-            self.hidden_layer_z_array.append(np.zeros(self.n_hidden_nodes))
 
     def get_number_of_nodes(self, level):
         """Get number of nodes for a given level
@@ -187,6 +190,48 @@ class BackPropagation:
             return self.n_hidden_nodes
         else:
             assert False, "levels present: {0} - {1}".format(0, self.n_hidden_layers+1)
+    '''
+    def initialize_hidden_layer(self):
+        """ Initializing y and z for the hidden layers with zeros
+            Assumption: There's equal number of nodes in each of the hidden layers
+        """
+        assert self.n_hidden_nodes is not None, "count of hidden nodes should be done by calling set_hidden_nodes()"
+        for i in range(0, self.n_hidden_layers):
+            self.hidden_layer_activation_array.append(np.zeros(self.n_hidden_nodes))
+            self.hidden_layer_z_array.append(np.zeros(self.n_hidden_nodes))
+    '''
+    def initialize_logit_activation_arrays(self):
+        """ Initialize list of logit(z) and activation arrays(y) with zeros
+            Assumption: (a) There's equal number of nodes in each of the hidden layers
+                        (b) Current implementation doesn't include bias
+        """
+        # input layer
+        self.logit_arrays.append(np.array([]))  # empty logit array for input layer
+        self.activation_arrays.append(np.zeros(self.n_input_nodes))  # To be populated by the input array of the sample
+
+        # hidden layers
+        assert self.n_hidden_nodes is not None, "count of hidden nodes should be done by calling set_hidden_nodes()"
+        for hidden_layer_i in range(self.n_hidden_layers):
+            self.logit_arrays.append(np.zeros(self.n_hidden_nodes))
+            self.activation_arrays.append(np.zeros(self.n_hidden_nodes))
+
+        # output layer
+        self.logit_arrays.append(np.zeros(self.n_output_nodes))
+        self.activation_arrays.append(np.zeros(self.n_output_nodes))
+
+        # Now initialize error derivatives wrt logit/activation
+        # input layer
+        self.error_derivative_wrt_logit.append(np.array([]))
+        self.error_derivative_wrt_activation.append(np.zeros(self.n_input_nodes))
+
+        # hidden layers
+        for hidden_layer_i in range(self.n_hidden_layers):
+            self.error_derivative_wrt_logit.append(np.zeros(self.n_hidden_nodes))
+            self.error_derivative_wrt_activation.append(np.zeros(self.n_hidden_nodes))
+
+        # output layer
+        self.error_derivative_wrt_logit.append(np.zeros(self.n_output_nodes))
+        self.error_derivative_wrt_activation.append(np.array([]))
 
     def initialize_weights(self):
         """ Randomly initialize weights
@@ -229,6 +274,7 @@ class BackPropagation:
             level_j = level_i + 1
             n_nodes_upper_level = self.get_number_of_nodes(level_j)
             error_derivative_ij = np.zeros((n_nodes_lower_level, n_nodes_upper_level))
+
             if len(self.error_derivative_wrt_weight) > level_i:
                 self.error_derivative_wrt_weight[level_i] = error_derivative_ij
             else:
@@ -250,7 +296,8 @@ class BackPropagation:
         """
         cross_entropy_cost = 0.0
         for k in range(len(self.output_layer_array)):
-            cross_entropy_cost += self.output_layer_array[k] * np.log(self.output_layer_activation_array[k])
+            # cross_entropy_cost += self.output_layer_array[k] * np.log(self.output_layer_activation_array[k])
+            cross_entropy_cost += self.output_layer_array[k] * np.log(self.activation_arrays[self.n_hidden_layers+1][k])
         cross_entropy_cost *= -1.0
         return cross_entropy_cost
 
@@ -258,7 +305,7 @@ class BackPropagation:
     def compute_sigmoid(z):
         y = 1.0/(1.0 + np.exp(-1*z))
         return y
-
+    '''
     def compute_hidden_layer(self, cur_level):
         """ Compute (a) weighted sum of inputs (z)  (b) activation (y) of z
             Notation: input level is considered level 0. First hidden layer is level 1 and so on.
@@ -316,38 +363,46 @@ class BackPropagation:
 
         self.output_layer_z_array = z_array
         self.output_layer_activation_array = y_array
-
-    # TODO Handle weight update for multi hidden layers
-    def update_weights_online(self):
-        """ Current implementation: Online learning
-            Assumption: single hidden layer
+    '''
+    def compute_logit_activation_for_layers(self):
+        """Compute (a) logit(z): weighted sum of inputs  (b) activation(y) for each of the layers
         """
-        # Update of the weights connecting the top most hidden layer to the output layer
-        level_k = self.n_hidden_layers + 1
-        level_j = self.n_hidden_layers
-        for node_k in range(0, self.n_output_nodes):
-            yk_minus_tk = self.output_layer_activation_array[node_k] - self.output_layer_array[node_k]
-            for node_j in range(0, self.n_hidden_nodes):
-                y_j = self.hidden_layer_activation_array[self.n_hidden_layers-1][node_j]
-                self.theta[level_j][node_j, node_k] -= self.learning_rate * yk_minus_tk * y_j
+        # input layer: assign input as activation(y) for this layer
+        #              logit array is kept empty
+        self.activation_arrays[0] = self.input_layer_array
 
-        # Update of the weights connecting the input layer to the single hidden layer
-        # For multiple hidden layers, equation will be different
-        level_i = 0  # input layer
-        for node_j in range(0, self.n_hidden_nodes):
-            y_j = self.hidden_layer_activation_array[0][node_j]
-            for node_i in range(0, self.n_input_nodes):
-                y_i = self.input_layer_array[node_i]
-                error_derivative_ij = 0.0
-                for node_k in range(0, self.n_output_nodes):
-                    w_jk = self.theta[level_j][node_j, node_k]
-                    yk_minus_tk = self.output_layer_activation_array[node_k] - self.output_layer_array[node_k]
-                    error_derivative_ij += w_jk * yk_minus_tk * y_j * (1.0 - y_j) * y_i
-                # update the weight connecting node_i to node_j using the cost error derivative
-                self.theta[level_i][node_i, node_j] -= self.learning_rate * error_derivative_ij
+        # iterate over each of the hidden layer and
+        #  compute (a) logit(z) and (b) activation(y) for each of the nodes
+        for level_j in range(1, self.n_hidden_layers+1):
+            level_i = level_j - 1
+            n_nodes_lower_level = self.get_number_of_nodes(level_i)
+            n_nodes_upper_level = self.get_number_of_nodes(level_j)
+            for node_j in range(n_nodes_upper_level):
+                z_val = 0.0
+                for node_i in range(n_nodes_lower_level):
+                    z_val += self.activation_arrays[level_i][node_i] * self.theta[level_i][node_i, node_j]
+                y_val = self.compute_sigmoid(z_val)
+                # store the computed values
+                self.logit_arrays[level_j][node_j] = z_val
+                self.activation_arrays[level_j][node_j] = y_val
 
+        # softmax group for output units
+        level_k = self.n_hidden_layers + 1  # output layer
+        level_j = level_k - 1
+        n_nodes_lower_level = self.get_number_of_nodes(level_j)
+        n_nodes_upper_level = self.get_number_of_nodes(level_k)
+        for node_k in range(n_nodes_upper_level):
+            z_val = 0.0
+            for node_j in range(n_nodes_lower_level):
+                z_val += self.activation_arrays[level_j][node_j] * self.theta[level_j][node_j, node_k]
+            self.logit_arrays[level_k][node_k] = z_val
+            self.activation_arrays[level_k][node_k] = np.exp(z_val)
+        # Normalize
+        self.activation_arrays[level_k] /= np.sum(self.activation_arrays[level_k])
+
+    '''
     # TODO Handle error derivatives wrt weight for multi hidden layers
-    def update_error_derivatives(self, batch_size):
+    def update_error_derivatives_old(self, batch_size):
         """Update error derivatives wrt weight
             For mini-batch we average error derivatives over the mini-batch size.
             This function is called online i.e. for each of the training samples of the mini-batch
@@ -378,6 +433,47 @@ class BackPropagation:
                     error_derivative_ij += w_jk * yk_minus_tk * y_j * (1.0 - y_j) * y_i
                 # update the weight connecting node_i to node_j using the cost error derivative
                 self.error_derivative_wrt_weight[level_i][node_i, node_j] += error_derivative_ij / batch_size
+    '''
+    def update_error_derivatives(self, batch_size):
+        """Update error derivatives wrt weight
+            For mini-batch we average error derivatives over the mini-batch size.
+            This function is called online i.e. for each of the training samples of the mini-batch
+            Once its called for each of the samples on the mini-batch, we update the weights
+        """
+        # compute error derivative wrt logit at output layer
+        level_k = self.n_hidden_layers + 1
+        for node_k in range(self.n_output_nodes):
+            self.error_derivative_wrt_logit[level_k][node_k] = self.activation_arrays[level_k][node_k] - \
+                                                               self.output_layer_array[node_k]
+
+        for level_j in range(self.n_hidden_layers, -1, -1):
+            level_k = level_j + 1
+            n_nodes_lower_level = self.get_number_of_nodes(level_j)
+            n_nodes_upper_level = self.get_number_of_nodes(level_k)
+
+            # compute the error derivative wrt activation(y) for each node at level_j
+            for node_j in range(n_nodes_lower_level):
+                error_derivative_wrt_activation = 0.0
+                for node_k in range(n_nodes_upper_level):
+                    error_derivative_wrt_activation += self.error_derivative_wrt_logit[level_k][node_k] * \
+                                                       self.theta[level_j][node_j, node_k]
+                # store the error derivative wrt activation for node_j
+                self.error_derivative_wrt_activation[level_j][node_j] = error_derivative_wrt_activation
+
+            if level_j > 0:
+                # compute the error derivative wrt logit(z) for each node at level_j
+                for node_j in range(n_nodes_lower_level):
+                    self.error_derivative_wrt_logit[level_j][node_j] = \
+                        self.error_derivative_wrt_activation[level_j][node_j] * self.activation_arrays[level_j][node_j]\
+                        * (1.0 - self.activation_arrays[level_j][node_j])
+
+            # compute the error derivative wrt weight connecting nodes of level_j to nodes of level_k
+            # Note: unlike error derivatives wrt logit/activation, for weight we average over the mini-batch.
+            #       Hence dividing my batch_size and adding.
+            for node_j in range(n_nodes_lower_level):
+                for node_k in range(n_nodes_upper_level):
+                    self.error_derivative_wrt_weight[level_j][node_j, node_k] += \
+                        (self.error_derivative_wrt_logit[level_k][node_k] * self.activation_arrays[level_j][node_j]) / batch_size
 
     def update_local_weight_gain(self, prev_error_derivative_wrt_weight):
         """Individual learning rates implemented using local weight gain
@@ -409,7 +505,6 @@ class BackPropagation:
                     else:
                         pass
 
-    # TODO Handle weight update for multi hidden layers
     def update_weights(self):
         """Update weights for the mini-batch after error derivatives have been computed for each of the samples of the mini-batch
         """
@@ -467,9 +562,12 @@ class BackPropagation:
                     self.output_layer_array[self.train_label_array[train_i]] = 1.0
 
                     # forward pass
+                    self.compute_logit_activation_for_layers()
+                    """
                     for level in range(1, self.n_hidden_layers + 1):
                         self.compute_hidden_layer(level)
                     self.compute_output_layer()
+                    """
 
                     # backward pass: update error derivatives
                     self.update_error_derivatives(mini_batch_size)
@@ -499,14 +597,18 @@ class BackPropagation:
             # assign input layer
             self.input_layer_array = self.validation_data[validate_i]
             # forward pass
+            self.compute_logit_activation_for_layers()
+            """
             for level in range(1, self.n_hidden_layers + 1):
                 self.compute_hidden_layer(level)
             self.compute_output_layer()
+            """
             true_class = self.validation_label_array[validate_i]
-            predicted_class = np.argmax(self.output_layer_activation_array)
+            output_layer_activation_array = self.activation_arrays[self.n_hidden_layers+1]
+            predicted_class = np.argmax(output_layer_activation_array)
             print "validate_i: {0} :: true class: {1} : (prob) ({2}) :: predicted class: {3} : (prob): ({4})"\
-                .format(validate_i, true_class, self.output_layer_activation_array[true_class],
-                        predicted_class, self.output_layer_activation_array[predicted_class])
+                .format(validate_i, true_class, output_layer_activation_array[true_class],
+                        predicted_class, output_layer_activation_array[predicted_class])
             if true_class != predicted_class:
                 incorrect_prediction_count += 1
 
@@ -576,7 +678,7 @@ if __name__ == "__main__":
                                                validation_data=digit_recognizer_obj.validation_features_reduced_data,
                                                train_label_array=digit_recognizer_obj.train_label_array,
                                                validation_label_array=digit_recognizer_obj.validation_label_array,
-                                               batch_size=30, velocity_decay_rate=0
+                                               batch_size=30, velocity_decay_rate=0.9, delta_local_gain=0.0
                                                )
         back_propagation_obj.train_mini_batch()
         back_propagation_obj.evaluate()
@@ -598,9 +700,10 @@ TODO:
     - Gradient checking: (a) http://cs231n.github.io/neural-networks-3/
                          (b) In Andrew Ng's programming assignment
     - config file: use it as now there's too many parameters
+    - Convergence of multi hidden layers not good
 
 Current implementation:
-    - single hidden layer, softmax backpropagation with cross entropy as cost function
+    - softmax backpropagation with cross entropy as cost function
     - no bias
 
 Resource:
