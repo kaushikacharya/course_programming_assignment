@@ -13,6 +13,7 @@ from keras.layers import Flatten
 from keras.layers.convolutional import Convolution2D
 from keras.layers.convolutional import MaxPooling2D
 from keras.utils import np_utils
+from sklearn import svm
 
 
 class DigitRecognizer:
@@ -33,6 +34,9 @@ class DigitRecognizer:
         self.train_label_array = None
         self.validation_label_array = None
 
+        self.train_index_array = None
+        self.validation_index_array = None
+
     def load_train_data(self):
         """ Load train_file data
             This data is later split into train,validation sets
@@ -48,6 +52,17 @@ class DigitRecognizer:
             test_df = pd.read_csv(fd)
         return test_df
 
+    def create_train_subset(self, subset_fraction, subset_train_file="train_subset.csv"):
+        """ Create subset of train file
+            Useful in case where we want to use subset of train file. This avoids loading of entire train file.
+        """
+        train_df = self.load_train_data()
+        label_array = np.array(train_df.ix[:, "label"])
+        subset_index_array, junk = train_test_split(range(len(train_df.index)), train_size=subset_fraction)
+        subset_df = train_df.loc[subset_index_array, ]
+        with open(subset_train_file, "w") as fd:
+            subset_df.to_csv(os.path.join(self.data_folder, subset_train_file), index=False)
+
     def split_train_validation(self, file_data_df, train_fraction=0.7):
         """ Split train.csv into train and validation set
             Model(s) are trained on train set and validated on validation set
@@ -61,6 +76,10 @@ class DigitRecognizer:
 
         train_index_array, validation_index_array = train_test_split(range(len(file_data_df.index)),
                                                                      train_size=train_fraction)
+
+        # store the train/validation indices
+        self.train_index_array = train_index_array
+        self.validation_index_array = validation_index_array
 
         # store the labels
         self.train_label_array = label_array[train_index_array]
@@ -99,11 +118,18 @@ class DigitRecognizer:
         print "dimensions post PCA: {0} using proportion variance explained={1}".format(
             self.train_features_reduced_data.shape[1], proportion_variance_explained_threshold)
 
+    def get_sample_index(self, rel_index, set_type="validation"):
+        assert (set_type == "train") | (set_type == "validation"), "type should be either train/validation"
+        if set_type == "train":
+            return self.train_index_array[rel_index]
+        else:
+            return self.validation_index_array[rel_index]
+
 
 class BackPropagation:
     def __init__(self, train_data, validation_data, train_label_array, validation_label_array, learning_rate=0.05,
                  batch_size=500, n_epoch=5, velocity_decay_rate=0.9, delta_local_gain=0.05, min_local_weight_gain=0.1,
-                 max_local_weight_gain=10):
+                 max_local_weight_gain=10, nesterov_momentum_flag=False):
         """ Initialize BackPropagation
 
             Parameters
@@ -144,21 +170,14 @@ class BackPropagation:
         self.delta_local_gain = delta_local_gain  # used for individual learning rates
         self.min_local_weight_gain = min_local_weight_gain
         self.max_local_weight_gain = max_local_weight_gain
+        self.nesterov_momentum_flag = nesterov_momentum_flag  # momentum method suggested by Nesterov (1983)
         # activation and z values for the levels
 
         # List of arrays
         # Length of list = number of hidden layers + 2 (one for input layer and another for output layer)
         self.logit_arrays = list()  # z arrays
         self.activation_arrays = list()  # y arrays
-        """
-        # output layer
-        self.output_layer_activation_array = np.zeros(self.n_output_nodes)
-        self.output_layer_z_array = np.zeros(self.n_output_nodes)
-        # hidden layer
-        # List of arrays. Length of list = number of hidden layers
-        self.hidden_layer_activation_array = list()
-        self.hidden_layer_z_array = list()
-        """
+
         # input layer
         self.input_layer_array = None
         # output layer
@@ -166,7 +185,6 @@ class BackPropagation:
 
         # initialize functions
         self.set_hidden_nodes()
-        # self.initialize_hidden_layer()
         self.initialize_logit_activation_arrays()
 
     def set_hidden_nodes(self):
@@ -190,16 +208,7 @@ class BackPropagation:
             return self.n_hidden_nodes
         else:
             assert False, "levels present: {0} - {1}".format(0, self.n_hidden_layers+1)
-    '''
-    def initialize_hidden_layer(self):
-        """ Initializing y and z for the hidden layers with zeros
-            Assumption: There's equal number of nodes in each of the hidden layers
-        """
-        assert self.n_hidden_nodes is not None, "count of hidden nodes should be done by calling set_hidden_nodes()"
-        for i in range(0, self.n_hidden_layers):
-            self.hidden_layer_activation_array.append(np.zeros(self.n_hidden_nodes))
-            self.hidden_layer_z_array.append(np.zeros(self.n_hidden_nodes))
-    '''
+
     def initialize_logit_activation_arrays(self):
         """ Initialize list of logit(z) and activation arrays(y) with zeros
             Assumption: (a) There's equal number of nodes in each of the hidden layers
@@ -305,65 +314,7 @@ class BackPropagation:
     def compute_sigmoid(z):
         y = 1.0/(1.0 + np.exp(-1*z))
         return y
-    '''
-    def compute_hidden_layer(self, cur_level):
-        """ Compute (a) weighted sum of inputs (z)  (b) activation (y) of z
-            Notation: input level is considered level 0. First hidden layer is level 1 and so on.
-        """
-        if cur_level == 1:
-            # case: previous level is input level
-            # Before calling this function ensure that self.input_layer_array has been assigned current training sample
-            # by using the function assign_input_layer
-            y_array = self.input_layer_array
 
-            # For each of the hidden nodes of current hidden layer compute its z
-            z_array = np.zeros(self.n_hidden_nodes)
-            for node_j in range(0, self.n_hidden_nodes):
-                # extract the weight array based on the edges connecting the nodes from previous layer to the j'th node
-                # of current hidden layer
-                weight_array = np.zeros(self.n_input_nodes)
-                for node_i in range(0, self.n_input_nodes):
-                    weight_array[node_i] = self.theta[0][node_i, node_j]
-
-                z_array[node_j] = np.dot(y_array, weight_array)
-
-            # Now compute the y array for this hidden layer
-            y_array = np.zeros(self.n_hidden_nodes)
-            for node_j in range(0, self.n_hidden_nodes):
-                y_array[node_j] = self.compute_sigmoid(z_array[ node_j])
-
-            self.hidden_layer_z_array[0] = z_array
-            self.hidden_layer_activation_array[0] = y_array
-        else:
-            # case: previous level is another hidden layer
-            pass
-
-    def compute_output_layer(self):
-        """ Compute (a) weighted sum of inputs (z)  (b) activation (y) of z for the output layer
-        """
-        y_array = self.hidden_layer_activation_array[self.n_hidden_layers-1]
-
-        # For each of the nodes of the output layer compute its z
-        z_array = np.zeros(self.n_output_nodes)
-        for k in range(0, self.n_output_nodes):
-            # extract the weight array
-            weight_array = np.zeros(self.n_hidden_nodes)
-            for j in range(0, self.n_hidden_nodes):
-                weight_array[j] = self.theta[self.n_hidden_layers][j, k]
-
-            z_array[k] = np.dot(y_array, weight_array)
-
-        y_array = np.zeros(self.n_output_nodes)
-        for k in range(0, self.n_output_nodes):
-            y_array[k] = np.exp(z_array[k])
-        # For softmax y values needs to be normalized
-        sum_y_output = np.sum(y_array)
-        for k in range(0, self.n_output_nodes):
-            y_array[k] /= sum_y_output
-
-        self.output_layer_z_array = z_array
-        self.output_layer_activation_array = y_array
-    '''
     def compute_logit_activation_for_layers(self):
         """Compute (a) logit(z): weighted sum of inputs  (b) activation(y) for each of the layers
         """
@@ -400,40 +351,6 @@ class BackPropagation:
         # Normalize
         self.activation_arrays[level_k] /= np.sum(self.activation_arrays[level_k])
 
-    '''
-    # TODO Handle error derivatives wrt weight for multi hidden layers
-    def update_error_derivatives_old(self, batch_size):
-        """Update error derivatives wrt weight
-            For mini-batch we average error derivatives over the mini-batch size.
-            This function is called online i.e. for each of the training samples of the mini-batch
-            Once its called for each of the samples on the mini-batch, we update the weights
-            Assumption: Single hidden layer
-        """
-        # Error derivatives wrt the weights connecting the top most hidden layer to the output layer
-        level_k = self.n_hidden_layers + 1
-        level_j = self.n_hidden_layers
-        for node_k in range(0, self.n_output_nodes):
-            yk_minus_tk = self.output_layer_activation_array[node_k] - self.output_layer_array[node_k]
-            for node_j in range(0, self.n_hidden_nodes):
-                y_j = self.hidden_layer_activation_array[self.n_hidden_layers - 1][node_j]
-                self.error_derivative_wrt_weight[level_j][node_j, node_k] += yk_minus_tk * y_j / batch_size
-
-        # Update of the weights connecting the input layer to the single hidden layer
-        # For multiple hidden layers, equation will be different
-        level_i = 0  # input layer
-        for node_j in range(0, self.n_hidden_nodes):
-            y_j = self.hidden_layer_activation_array[0][node_j]
-            for node_i in range(0, self.n_input_nodes):
-                y_i = self.input_layer_array[node_i]
-                # sum over the error derivative on the connections from node_j to the nodes in its upper layer i.e. k
-                error_derivative_ij = 0.0
-                for node_k in range(0, self.n_output_nodes):
-                    w_jk = self.theta[level_j][node_j, node_k]
-                    yk_minus_tk = self.output_layer_activation_array[node_k] - self.output_layer_array[node_k]
-                    error_derivative_ij += w_jk * yk_minus_tk * y_j * (1.0 - y_j) * y_i
-                # update the weight connecting node_i to node_j using the cost error derivative
-                self.error_derivative_wrt_weight[level_i][node_i, node_j] += error_derivative_ij / batch_size
-    '''
     def update_error_derivatives(self, batch_size):
         """Update error derivatives wrt weight
             For mini-batch we average error derivatives over the mini-batch size.
@@ -505,21 +422,34 @@ class BackPropagation:
                     else:
                         pass
 
-    def update_weights(self):
+    def update_weights(self, nesterov_step=0):
         """Update weights for the mini-batch after error derivatives have been computed for each of the samples of the mini-batch
         """
+        if self.nesterov_momentum_flag:
+            assert (nesterov_step == 1) | (nesterov_step == 2), "For Nesterov method, nesterov_step should be either 1 or 2"
+
         for level_i in range(self.n_hidden_layers+1):
             level_j = level_i + 1
             n_nodes_level_i = self.get_number_of_nodes(level_i)
             n_nodes_level_j = self.get_number_of_nodes(level_j)
             for node_j in range(n_nodes_level_j):
                 for node_i in range(n_nodes_level_i):
-                    weight_update = self.velocity_decay_rate * self.prev_theta_update[level_i][node_i, node_j] - \
-                                    self.learning_rate * self.local_weight_gain[level_i][node_i, node_j] *\
-                                    self.error_derivative_wrt_weight[level_i][node_i, node_j]
+                    if self.nesterov_momentum_flag is False:
+                        weight_update = self.velocity_decay_rate * self.prev_theta_update[level_i][node_i, node_j] - \
+                                        self.learning_rate * self.local_weight_gain[level_i][node_i, node_j] *\
+                                        self.error_derivative_wrt_weight[level_i][node_i, node_j]
+                        # save this update for usage in next iteration of update at [level_i][node_i, node_j] connection
+                        self.prev_theta_update[level_i][node_i, node_j] = weight_update
+                    else:
+                        if nesterov_step == 1:
+                            weight_update = self.velocity_decay_rate * self.prev_theta_update[level_i][node_i, node_j]
+                            self.prev_theta_update[level_i][node_i, node_j] = weight_update
+                        else:
+                            weight_update = -1.0 * self.learning_rate * self.local_weight_gain[level_i][node_i, node_j] \
+                                            * self.error_derivative_wrt_weight[level_i][node_i, node_j]
+                            self.prev_theta_update[level_i][node_i, node_j] += weight_update
+
                     self.theta[level_i][node_i, node_j] += weight_update
-                    # save this update for usage in next iteration of update at [level_i][node_i, node_j] connection
-                    self.prev_theta_update[level_i][node_i, node_j] = weight_update
 
     # TODO create mini-batch randomly instead of only in sequence
     #       as shown in "mini-batch gradient descent" section of http://ruder.io/optimizing-gradient-descent/
@@ -550,6 +480,11 @@ class BackPropagation:
                 # set error derivatives to zero
                 self.initialize_error_derivatives()
 
+                if self.nesterov_momentum_flag:
+                    # As per Nesterov method, first make a jump in the direction of the previous accumulated gradient
+                    # Then the gradient is measured using the updated theta and then the correction is done.
+                    self.update_weights(nesterov_step=1)
+
                 # iterate over each of the training samples in the mini-batch and compute error derivatives
                 # we average the error derivatives and update weights using the average
                 mini_batch_size = train_j - train_i
@@ -563,11 +498,6 @@ class BackPropagation:
 
                     # forward pass
                     self.compute_logit_activation_for_layers()
-                    """
-                    for level in range(1, self.n_hidden_layers + 1):
-                        self.compute_hidden_layer(level)
-                    self.compute_output_layer()
-                    """
 
                     # backward pass: update error derivatives
                     self.update_error_derivatives(mini_batch_size)
@@ -588,31 +518,37 @@ class BackPropagation:
                 # Now update the weight based on error derivatives of the current mini-batch
                 if self.delta_local_gain != 0:
                     self.update_local_weight_gain(prev_error_derivative_wrt_weight)
-                self.update_weights()
+
+                if self.nesterov_momentum_flag is False:
+                    self.update_weights()
+                else:
+                    self.update_weights(nesterov_step=2)
 
     # TODO Should evaluate accuracy on training set also.
-    def evaluate(self):
+    def evaluate(self, train_index_array, validation_index_array):
         incorrect_prediction_count = 0
+        # confusion matrix: row represents the truth
+        validation_confusion_matrix = np.zeros((self.n_output_nodes, self.n_output_nodes))
         for validate_i in range(len(self.validation_data)):
             # assign input layer
             self.input_layer_array = self.validation_data[validate_i]
             # forward pass
             self.compute_logit_activation_for_layers()
-            """
-            for level in range(1, self.n_hidden_layers + 1):
-                self.compute_hidden_layer(level)
-            self.compute_output_layer()
-            """
+
             true_class = self.validation_label_array[validate_i]
             output_layer_activation_array = self.activation_arrays[self.n_hidden_layers+1]
             predicted_class = np.argmax(output_layer_activation_array)
-            print "validate_i: {0} :: true class: {1} : (prob) ({2}) :: predicted class: {3} : (prob): ({4})"\
-                .format(validate_i, true_class, output_layer_activation_array[true_class],
+            print "validate_i: {0} :: digit index: {1} :: true class: {2} : (prob) ({3}) :: predicted class: {4} : (prob): ({5})"\
+                .format(validate_i, validation_index_array[validate_i], true_class, output_layer_activation_array[true_class],
                         predicted_class, output_layer_activation_array[predicted_class])
+
+            validation_confusion_matrix[true_class, predicted_class] += 1
             if true_class != predicted_class:
                 incorrect_prediction_count += 1
 
         print "incorrect prediction: {0} %".format(incorrect_prediction_count*100/len(self.validation_data))
+        print "Confusion Matrix:"
+        print validation_confusion_matrix
 
 
 class CNN:
@@ -663,7 +599,7 @@ class CNN:
 
 
 if __name__ == "__main__":
-    digit_recognizer_obj = DigitRecognizer("data", "train_trial.csv")
+    digit_recognizer_obj = DigitRecognizer("data", "train_subset.csv")
     train_file_data_df = digit_recognizer_obj.load_train_data()
     print "row count of train file: ", len(train_file_data_df.index)
     print "columns count of data: ", len(train_file_data_df.columns)-1  # One column represents label
@@ -673,15 +609,17 @@ if __name__ == "__main__":
     if method_chosen == 0:
         digit_recognizer_obj.dimensionality_reduction()
         # without momentum: use velocity_decay_rate=0
-        # with individual learning rates: use delta_local_gain=0
+        # with individual learning rates: use delta_local_gain > 0
+        # Use either momentum
         back_propagation_obj = BackPropagation(train_data=digit_recognizer_obj.train_features_reduced_data,
                                                validation_data=digit_recognizer_obj.validation_features_reduced_data,
                                                train_label_array=digit_recognizer_obj.train_label_array,
                                                validation_label_array=digit_recognizer_obj.validation_label_array,
-                                               batch_size=30, velocity_decay_rate=0.9, delta_local_gain=0.0
+                                               batch_size=30, velocity_decay_rate=0.9, delta_local_gain=0.0,
+                                               nesterov_momentum_flag=True
                                                )
         back_propagation_obj.train_mini_batch()
-        back_propagation_obj.evaluate()
+        back_propagation_obj.evaluate(digit_recognizer_obj.train_index_array, digit_recognizer_obj.validation_index_array)
     else:
         cnn_obj = CNN(train_data=digit_recognizer_obj.train_features_data,
                       validation_data=digit_recognizer_obj.validation_features_data,
@@ -694,13 +632,14 @@ TODO:
     - Split train into (a) train, (b) validation using random split with seed
     - Dimensionality reduction using PCA, random projection
     - Plot t-sne from scikit-learn
-    - Create confusion matrix
     - In online weight update version, think on how many samples should we calculate the cost. Only computing cost for
         the current sample doesn't seems to be good enough.
     - Gradient checking: (a) http://cs231n.github.io/neural-networks-3/
                          (b) In Andrew Ng's programming assignment
     - config file: use it as now there's too many parameters
-    - Convergence of multi hidden layers not good
+    - Convergence of multi hidden layers in my implementation is not good
+    - regularization:
+        http://scikit-learn.org/stable/modules/neural_networks_supervised.html
 
 Current implementation:
     - softmax backpropagation with cross entropy as cost function
@@ -731,4 +670,10 @@ Resource:
 
     pandas:
         https://stackoverflow.com/questions/19609631/python-changing-row-index-of-pandas-data-frame
+
+    Various gradient descent optimization algorithms:
+        http://ruder.io/optimizing-gradient-descent/index.html
+
+    Attempt by others:
+        https://github.com/ksopyla/svm_mnist_digit_classification (Result comparison with other models)
 """
