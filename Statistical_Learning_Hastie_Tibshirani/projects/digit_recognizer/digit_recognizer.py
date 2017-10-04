@@ -14,6 +14,7 @@ from keras.layers.convolutional import Convolution2D
 from keras.layers.convolutional import MaxPooling2D
 from keras.utils import np_utils
 from sklearn import svm
+from cvxopt import matrix, solvers
 
 
 class DigitRecognizer:
@@ -102,7 +103,8 @@ class DigitRecognizer:
         assert self.validation_label_array is not None, "pre-requisite: split the data using the function: split_train_validation()"
 
         # min-max normalization
-        # TODO move min-max normalization into separate function
+        # TODO move min-max normalization into separate function.
+        # This normalization function should be applied on features data before passing input to various algorithms.
         # TODO assert if data type is int
         self.train_features_data /= 255
         self.validation_features_data /= 255
@@ -598,6 +600,140 @@ class CNN:
         print "CNN model error: %.2f" % (100-scores[1]*100)
 
 
+class SVM:
+    """RBF SVM
+    """
+    # TODO Two options: (a) one-vs-one  (b) one-vs-rest
+    def __init__(self, C=5.0, gamma=0.05, n_class=10):
+        self.C = C
+        self.gamma = gamma
+        self.n_class = n_class
+        # SVM model parameters
+        self.w_matrix = None
+        self.b_array = np.zeros(self.n_class)
+        # SVM support vectors
+        # For the multi-class classification model, we are training n_class models of class vs rest
+        # self.support_vector_index_array = []
+        self.support_vector_alpha_array = []
+        self.support_vector_x_matrix = []
+        self.support_vector_y_array = []
+
+    # TODO Create a kernel class with various kernel functions
+    def rbf_kernel(self, x1_array, x2_array):
+        kernel_val = np.exp(-1.0*self.gamma*np.dot(x1_array-x2_array, x1_array-x2_array))
+        return kernel_val
+
+    def compute_alpha(self, x_matrix, y_array):
+        """"Minimize the objective function to compute alpha.
+            Note: alpha's are computed in z space.
+
+        Parameters
+        ----------
+        x_matrix : numpy.ndarray, shape(number of train samples, number of features)
+        y_array : numpy.array
+        """
+        n_sample = len(y_array)
+        n_feature = np.shape(x_matrix)[1]
+        P = matrix(np.zeros((n_sample, n_sample)))
+
+        # populate the values for matrix Q
+        # TODO Compute either for upper or lower half of the matrix and populate for the corresponding value in lower or upper half
+        for i in range(n_sample):
+            for j in range(n_sample):
+                kernel_val = self.rbf_kernel(x_matrix[i, :], x_matrix[j, :])
+                P[i, j] = y_array[i]*y_array[j]*kernel_val
+
+        q = -1.0*matrix(np.ones((n_sample, 1)))
+        A = matrix(y_array).T
+        b = matrix(0.0)
+        G = matrix(np.ones((2, n_sample)))
+        G[1, :] *= -1.0
+        h = matrix(np.array([self.C, 0.0]).reshape((2, 1)))
+
+        sol = solvers.qp(P=P, q=q, G=G, h=h, A=A, b=b)
+        x_array = np.array([x for x in sol['x']])
+        # Changing values to zero which are <= epsilon
+        alpha_array = np.where(x_array > 1e-03, x_array, 0)
+        # print "alpha: ", alpha_array
+        print "max(alpha): ", max(alpha_array)
+        print "support vectors: {0} out of n_sample: {1}".format(sum(alpha_array != 0), n_sample)
+        return alpha_array
+
+    def compute_weight_vector(self, alpha_array, x_matrix, y_array):
+        n_sample = len(y_array)
+        n_feature = np.shape(x_matrix)[1]
+        w = np.zeros(n_feature)
+        for feature_i in range(n_feature):
+            for sample_i in range(n_sample):
+                w[feature_i] += alpha_array[sample_i] * y_array[sample_i] * x_matrix[sample_i, feature_i]
+
+        # compute bias using any support vector
+        b = None
+        for sample_i in range(n_sample):
+            if alpha_array[sample_i] > 0:
+                b = 1.0/y_array[sample_i] - np.dot(w, x_matrix[sample_i, :])
+                print "alpha: {0} :: b: {1}".format(alpha_array[sample_i], b)
+        assert b is not None, "None support vector found"
+
+        # print "training accuracy: "
+        # self.evaluate(w, b, x_matrix, y_array)
+        return w, b
+
+    def save_support_vectors(self, class_index, alpha_array, x_matrix, y_array):
+        """Save the values corresponding to support vectors
+        """
+        support_indices = [i for i,v in enumerate(alpha_array) if v > 0]
+        self.support_vector_alpha_array.append(alpha_array[support_indices])
+        self.support_vector_x_matrix.append(x_matrix[support_indices, :])
+        self.support_vector_y_array.append(y_array[support_indices])
+
+        # compute bias using any margin support vector
+        # Note: Andrew Tulloch's implementation takes average bias over the support vectors
+        b = 0.0  # None
+        count_val = 0
+        for sample_i in support_indices:
+            if alpha_array[sample_i] < self.C:
+                sum_val = 0.0
+                for sample_j in support_indices:
+                    sum_val += alpha_array[sample_j] * y_array[sample_j] * self.rbf_kernel(x_matrix[sample_i, :], x_matrix[sample_j, :])
+                b += y_array[sample_i] - sum_val
+                # print "sample_i: {0} :: b: {1}".format(sample_i, b)
+                count_val += 1
+                # break
+
+        assert count_val > 0, "None margin support vector found"
+        b /= count_val
+        assert b is not None, "None margin support vector found"
+        self.b_array[class_index] = b
+
+    def evaluate(self, x_matrix, label_array):
+        n_sample = len(label_array)
+        confusion_matrix = np.zeros((self.n_class, self.n_class))
+        accuracy = 0.0
+        for sample_i in range(n_sample):
+            # For each digit class compute the margin for the sample being that class vs rest
+            margin_array = np.zeros(self.n_class)
+            for digit in range(self.n_class):
+                for support_i in range(len(self.support_vector_alpha_array[digit])):
+                    margin_array[digit] += self.support_vector_alpha_array[digit][support_i] * \
+                                           self.support_vector_y_array[digit][support_i] * \
+                                           self.rbf_kernel(self.support_vector_x_matrix[digit][support_i, :], x_matrix[sample_i, :])
+                margin_array[digit] += self.b_array[digit]
+                # margin_array[digit] = np.dot(self.w_matrix[digit, :], x_matrix[sample_i, :]) + self.b_array[digit]
+
+            true_class = label_array[sample_i]
+            # choose the class with biggest margin
+            predicted_class = np.argmax(margin_array)
+            if predicted_class == true_class:
+                accuracy += 1
+            confusion_matrix[true_class, predicted_class] += 1
+
+        accuracy /= n_sample
+        accuracy *= 100
+        print "accuracy: ", accuracy
+        print "confusion matrix: "
+        print confusion_matrix
+
 if __name__ == "__main__":
     digit_recognizer_obj = DigitRecognizer("data", "train_subset.csv")
     train_file_data_df = digit_recognizer_obj.load_train_data()
@@ -605,7 +741,7 @@ if __name__ == "__main__":
     print "columns count of data: ", len(train_file_data_df.columns)-1  # One column represents label
     digit_recognizer_obj.split_train_validation(train_file_data_df)
 
-    method_chosen = 0
+    method_chosen = 2
     if method_chosen == 0:
         digit_recognizer_obj.dimensionality_reduction()
         # without momentum: use velocity_decay_rate=0
@@ -620,13 +756,79 @@ if __name__ == "__main__":
                                                )
         back_propagation_obj.train_mini_batch()
         back_propagation_obj.evaluate(digit_recognizer_obj.train_index_array, digit_recognizer_obj.validation_index_array)
-    else:
+    elif method_chosen == 1:
         cnn_obj = CNN(train_data=digit_recognizer_obj.train_features_data,
                       validation_data=digit_recognizer_obj.validation_features_data,
                       train_label_array=digit_recognizer_obj.train_label_array,
                       validation_label_array=digit_recognizer_obj.validation_label_array)
         cnn_obj.fit_model()
+    else:
+        flag_dimension_reduction = True
+        if flag_dimension_reduction is True:
+            digit_recognizer_obj.dimensionality_reduction()
 
+        svm_obj = SVM(C=10.0)
+        # For each digit learn one-vs-rest classification model
+        for digit in range(10):
+            index_class_1 = np.where(digit_recognizer_obj.train_label_array == digit)[0]
+            index_class_2 = np.where(digit_recognizer_obj.train_label_array != digit)[0]
+            # Create balanced dataset as rest(i.e. index_class_2) >> dataset of current digit
+            if len(index_class_2) > len(index_class_1):
+                index_class_2 = random.sample(index_class_2, len(index_class_1))
+            print "(training) Digit: {0} Number of samples: index1: {1} :: index2: {2}".format(digit, len(index_class_1), len(index_class_2))
+            y_array = np.concatenate((np.ones(len(index_class_1)), -1.0 * np.ones(len(index_class_2))))
+
+            if flag_dimension_reduction is True:
+                x_matrix = np.vstack((digit_recognizer_obj.train_features_reduced_data[index_class_1, :],
+                                      digit_recognizer_obj.train_features_reduced_data[index_class_2, :]))
+            else:
+                x_matrix = np.vstack((digit_recognizer_obj.train_features_data[index_class_1, :],
+                                      digit_recognizer_obj.train_features_data[index_class_2, :]))
+                # Normalize pixel intensities to [0,1]
+                x_matrix /= 255
+
+            alpha_array = svm_obj.compute_alpha(x_matrix, y_array)
+            svm_obj.save_support_vectors(digit, alpha_array, x_matrix, y_array)
+            """
+            w, b = svm_obj.compute_weight_vector(alpha_array, x_matrix, y_array)
+
+            if svm_obj.w_matrix is None:
+                svm_obj.w_matrix = w
+            else:
+                svm_obj.w_matrix = np.vstack((svm_obj.w_matrix, w))
+            svm_obj.b_array[digit] = b
+            """
+
+        """
+        print "w: "
+        print svm_obj.w_matrix
+        print "b: ", svm_obj.b_array
+        """
+
+        # evaluate on validation set
+        if flag_dimension_reduction is True:
+            x_matrix = digit_recognizer_obj.validation_features_reduced_data
+        else:
+            x_matrix = digit_recognizer_obj.validation_features_data
+            # Normalize pixel intensities to [0,1]
+            x_matrix /= 255
+
+        label_array = digit_recognizer_obj.validation_label_array
+        """
+        index_class_1 = np.where(digit_recognizer_obj.validation_label_array == 1)[0]
+        index_class_2 = np.where(digit_recognizer_obj.validation_label_array != 1)[0]
+        print "(validation) Number of samples: index1: {0} :: index2: {1}".format(len(index_class_1), len(index_class_2))
+        y_array = np.concatenate((np.ones(len(index_class_1)), -1.0 * np.ones(len(index_class_2))))
+        if flag_dimension_reduction is True:
+            x_matrix = np.vstack((digit_recognizer_obj.validation_features_reduced_data[index_class_1, :],
+                                  digit_recognizer_obj.validation_features_reduced_data[index_class_2, :]))
+        else:
+            x_matrix = np.vstack((digit_recognizer_obj.validation_features_data[index_class_1, :],
+                                  digit_recognizer_obj.validation_features_data[index_class_2, :]))
+            # Normalize pixel intensities to [0,1]
+            x_matrix /= 255
+        """
+        svm_obj.evaluate(x_matrix, label_array)
 """
 TODO:
     - Split train into (a) train, (b) validation using random split with seed
@@ -640,10 +842,17 @@ TODO:
     - Convergence of multi hidden layers in my implementation is not good
     - regularization:
         http://scikit-learn.org/stable/modules/neural_networks_supervised.html
+    - rmsprop
+    - SVM regularization
+    - Parameter search for SVM
+    - SVM: compare with scikit learn result
 
 Current implementation:
     - softmax backpropagation with cross entropy as cost function
     - no bias
+
+Observation:
+    - SVM: Seems that for wrong predictions, predicted classs is primarily one or two
 
 Resource:
     Number of hidden nodes:
@@ -674,6 +883,26 @@ Resource:
     Various gradient descent optimization algorithms:
         http://ruder.io/optimizing-gradient-descent/index.html
 
+    Number of support vectors:
+        https://stats.stackexchange.com/questions/126709/svm-number-of-support-vectors
+        RBF kernel SVM typically ends up with more support vectors than linear SVM:
+            https://www.quora.com/When-training-an-SVM-classifier-is-it-better-to-have-a-large-or-small-number-of-support-vectors
+
+    Choose the class with classifies the test datum with greatest margin
+        https://nlp.stanford.edu/IR-book/html/htmledition/multiclass-svms-1.html
+        NU: Alternate for construction of multiclass SVM
+
+    Computing bias when using kernel function:
+        http://book.caltech.edu/bookforum/showthread.php?t=4312
+        http://fouryears.eu/2012/06/07/the-svm-bias-term-conspiracy/ (**)
+            In his exercise, Konstantin Tretyakov raises the issue of the possibility of all support vectors violating the margin
+
     Attempt by others:
         https://github.com/ksopyla/svm_mnist_digit_classification (Result comparison with other models)
+        http://tullo.ch/articles/svm-py/ (SVM implementation using cvxopt)
+        http://cvxopt.org/applications/svm
+        http://cvxopt.org/examples/mlbook/mcsvm.html (multi-class SVM)
+        http://goelhardik.github.io/2016/11/28/svm-cvxopt/ (tutorial)
+        https://gist.github.com/sbos/7e483d372fe1128fea49
+
 """
