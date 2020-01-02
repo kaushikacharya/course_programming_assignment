@@ -253,3 +253,4 @@ create_tsne_plot <- function(data_csv_folder="mfeat_csv/",feature_set="mfeat-pix
 #     - Function should take single feature set. This will in iteration take 1st PCA, 1st two PCA and further till accuracy doesn't improves significantly.
 #     - This can be further improved to do using cross-validation.
 #   - transform_feature_using_pca(): return entire pca
+#   - plot mfeat-pix

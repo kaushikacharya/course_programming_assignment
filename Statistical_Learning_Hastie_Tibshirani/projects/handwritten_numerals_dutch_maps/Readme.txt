@@ -25,7 +25,20 @@ Articles on t-sne:
     http://colah.github.io/posts/2015-01-Visualizing-Representations/
     Laurens van der Maaten(author)'s page:
         https://lvdmaaten.github.io/tsne/
+        
+Restricted boltzmann machines:
+    https://www.r-bloggers.com/restricted-boltzmann-machines-in-r/
+    https://stackoverflow.com/questions/39565626/restricted-boltzmann-machine
+    https://cran.r-project.org/web/packages/deepnet/index.html
+    http://scikit-learn.org/stable/modules/generated/sklearn.neural_network.BernoulliRBM.html#sklearn.neural_network.BernoulliRBM
     
+Neural Networks:
+    https://www.r-bloggers.com/fitting-a-neural-network-in-r-neuralnet-package/
+    
+Deep Learning libraries in R:
+    https://stats.stackexchange.com/questions/41771/r-libraries-for-deep-learning
+    
+  
 rm(list = ls())
 
 source("./handwritten_numerals.R")
@@ -106,3 +119,8 @@ pca.out.fac$rotation[,1:13]
 
 pred.fac = predict(object = pca.out.fac, newdata = df.fac[-train,])
 
+Tasks:
+    1. MNIST dataset: Backward propagation for classification problem.
+    2. RBM
+        - How do we consider binary state from pixel values.
+        Lecture 12d of Hinton's course mentions pixel as binary.
