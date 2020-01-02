@@ -31,6 +31,12 @@ Question #9:
 (a) pairs(Auto)
 
 (b) 
+    > sapply(Auto, class)
+         mpg    cylinders displacement   horsepower       weight acceleration 
+   "numeric"    "numeric"    "numeric"    "numeric"    "numeric"    "numeric" 
+        year       origin         name 
+   "numeric"    "numeric"     "factor" 
+   
     new_df = Auto[,1:8]
     cor(new_df)
     

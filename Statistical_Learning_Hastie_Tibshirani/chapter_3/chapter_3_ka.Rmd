@@ -44,7 +44,10 @@ https://dzone.com/articles/learn-r-how-create-data-frames
 Question 9 of ISLR book
 ```{r}
 pairs(Auto)
-# creating new data frame from Auto be removing the qualitative predictor
+# creating new data frame from Auto by removing the qualitative predictor
+# type of variables
+sapply(Auto, class)
+# Doubt ?? Isn't others like cylinders are also qualitative predictor
 new_df = Auto[,1:8]
 cor(new_df)
 # multiple linear regression
