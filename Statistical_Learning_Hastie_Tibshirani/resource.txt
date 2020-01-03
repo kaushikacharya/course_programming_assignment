@@ -1,0 +1,8 @@
+Datasets:
+    http://machinelearningmastery.com/machine-learning-datasets-in-r/
+    https://www.r-bloggers.com/datasets-to-practice-your-data-mining/
+    http://appliedpredictivemodeling.com/data/
+    
+Regression Datasets:
+    http://www.dcc.fc.up.pt/~ltorgo/Regression/DataSets.html
+    

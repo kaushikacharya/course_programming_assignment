@@ -1,0 +1,33 @@
+Multiple features at each timestep:
+    https://datascience.stackexchange.com/questions/17099/adding-features-to-time-series-model-lstm
+    (NU) Also explains how to combine non-temporal feature with temporal data.
+    
+    https://datascience.stackexchange.com/questions/17024/rnns-with-multiple-features
+    - Explains with example how to run for both sequence as well as single vector output
+    - Also explains in comment how to output classifier class using one-hot encoding(using Dense)
+    
+Issue that needs to be decided yet:
+    - How would we handle unequal number of samples for the classes. How to assign "timesteps" in this case?
+    
+Sequence to sequence learning:
+    https://machinelearningmastery.com/how-to-use-an-encoder-decoder-lstm-to-echo-sequences-of-random-integers/
+    https://blog.keras.io/a-ten-minute-introduction-to-sequence-to-sequence-learning-in-keras.html (by Francois Chollet)
+    http://www.jackdermody.net/brightwire/article/Sequence_to_Sequence_with_LSTM
+    https://machinelearningmastery.com/models-sequence-prediction-recurrent-neural-networks/
+    
+Different ways of LSTM:
+    https://stackoverflow.com/questions/43034960/many-to-one-and-many-to-many-lstm-examples-in-keras/43047615
+    https://github.com/fchollet/keras/issues/1904
+    
+Positive/Negative review classification using LSTM:
+    https://machinelearningmastery.com/sequence-classification-lstm-recurrent-neural-networks-python-keras/
+    
+    
+Decision Tree:
+    Decision Tree implementation:
+    https://machinelearningmastery.com/implement-decision-tree-algorithm-scratch-python/
+    
+    Question: 1) In above implementation, at each node split is O(n*m) where m=number of features, n=dataset size i.e. number of samples
+              Instead of checking split for each value of a feature in the dataset, can we do in a more effective way?
+              
+              2) Is it also possible to avoid features for split decision which have been used recently in its immediate ancestors?
