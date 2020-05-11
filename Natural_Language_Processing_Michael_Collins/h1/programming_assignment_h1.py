@@ -16,7 +16,7 @@ def enum(**enums):
 
 
 class Emission:
-    def __init__(self, original_train_file, modified_train_file, count_threshold=5, categorize_rare=False):
+    def __init__(self, original_train_file, modified_train_file, count_threshold=5, categorize_rare=False, epsilon=1e-07):
         # in modified_train_file we map infrequent words to a common class
         self.original_train_file = original_train_file
         self.modified_train_file = modified_train_file
@@ -25,6 +25,7 @@ class Emission:
         self.ne_tags = []
         self.categorize_rare = categorize_rare
         self.rare_type = enum(NUMERIC=0, ALL_CAPS=1, LAST_CAPS=2, RARE=3)
+        self.epsilon = epsilon
 
     def train_ngram_and_emission_freq_from_corpus_file(self, corpus_file):
         counter = Hmm(3)
@@ -108,6 +109,10 @@ class Emission:
         return freq_emission*1.0/freq_tag
 
     def compute_trigram_transition_parameter(self, ngram):
+        if self.ngram_counts[1][ngram[0:2]] == 0:
+            return self.epsilon
+        if self.ngram_counts[2][ngram] == 0:
+            return self.epsilon
         return self.ngram_counts[2][ngram]*1.0/self.ngram_counts[1][ngram[0:2]]
 
     def assign_gene_tag_using_emission_param(self, dev_input_file, dev_output_file):
@@ -242,6 +247,7 @@ if __name__ == "__main__":
 
     emission.collect_ne_tags()
     emission.assign_rare_symbol_to_infrequent_words()
+
     # re-calculate counts again
     with open(modified_train_file, 'r') as fd:
         emission.train_ngram_and_emission_freq_from_corpus_file(fd)
