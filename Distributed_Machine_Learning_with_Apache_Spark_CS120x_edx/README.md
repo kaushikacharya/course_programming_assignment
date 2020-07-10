@@ -1,5 +1,10 @@
 **Distributed Machine Learning with Apache Spark**
 
+***[University of California, Berkeley (2016) (Edx)](https://www.edx.org/course/distributed-machine-learning-with-apache-spark)***
+
+#### Instructors:
+    * Ameet Talwalkar, University of California, Los Angeles
+    * Jon Bates, University of California, Berkeley
 
 #### Assignment Solutions
 
