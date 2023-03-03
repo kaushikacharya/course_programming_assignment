@@ -178,6 +178,7 @@ Visualizing Gradient Descent
 
     - Jupyter Notebook
       ----------------
+        - [Jupyter Notebook](../code/Challenges01_question.ipynb)
 
 - Soution Review - Visualizing Gradient Descent
   =============================================
