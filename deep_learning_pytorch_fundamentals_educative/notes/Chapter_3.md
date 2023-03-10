@@ -199,6 +199,7 @@ A Simple Regression Problem
       - **Understand in depth**:
         - Why we need to put the parameter updation under no_grad to avoid disrupting dynamic computation graph.
           - To keep the update out of the gradient computation.
+          - To avoid messing with PyTorch's Dynamic Computation Graph during the manual update of the parameters.
   - ### Summary
     - Another usecase of no_grad will be discussed in the chapter: rethinking the training loop.
 
@@ -420,5 +421,7 @@ A Simple Regression Problem
 
 - ## Challenge 2 - A Simple Regression Problem
   - ### Challenge
+
   - ### Jupyter notebook
-    - [Notebook](../code/Challenges02_question.ipynb)
+    - [Notebook: Question](../code/Challenges02_question.ipynb)
+    - [Notebook: Answer](../code/Challenges02.ipynb)
