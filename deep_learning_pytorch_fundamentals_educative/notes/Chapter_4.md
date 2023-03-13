@@ -9,6 +9,13 @@
 8. [Evaluation](#evaluation)
 9. [TensorBoard](#tensorboard)
 10. [SummaryWriter](#summarywriter)
+11. [Saving and Loading Models](#saving-and-loading-models)
+12. [Deploying/Making Predictions](#deploying--making-predictions)
+13. [Putting It All Together](#putting-it-all-together)
+14. [Recap](#recap)
+15. Quiz
+16. [Challenge 3 - Rethinking the Training Loop](#challenge-3---rethinking-the-training-loop)
+17. [Solution Review - Rethinking the Training Loop](#solution-review---rethinking-the-training-loop)
 
 - ## Spoilers
     - ### What to expect from this chapter
@@ -230,3 +237,140 @@
 
             - [Notebook](../code/Tensorboard_training.ipynb)
                 - This shows losses over sequence of epochs.
+
+- ## Saving and Loading Models
+    - ### Why save models?
+        - Not all models will be trained fast.
+        - Training may get interrupted (computer crashing, timeout etc.)
+        - Hence it is important to be able to checkpoint or save our model.
+
+    - ### Model state
+        - To checkpoint a model, we basically have to save its state to a file so that is can be loaded back later.
+        - The following defines the state of a model:
+            - *model.state_dict()*
+            - *optimizer.state_dict()*
+            - Losses: Need to keep track of its evolution.
+            - Epoch
+            - Anything else we would like to have restored later.
+    
+    - ### Saving checkpoint
+        - After defining the model state, we now have to wrap everything into a Python dictionary and use *torch.save()* to dump into a file.
+            ```
+            checkpoint = {'epoch': n_epochs,
+                        'model_state_dict': model.state_dict(),
+                        'optimizer_state_dict': optimizer.state_dict(),
+                        'loss': losses,
+                        'val_loss': val_losses}
+            
+            torch.save(checkpoint, 'model_checkpoint.pth')
+            ```
+        - Procedure is exactly same for both:
+            - Checkpointing a partially trained model to resume training later.
+            - Saving a fully trained model to deploy and make predictions.
+        
+    - ### Resuming training
+        - Setting stage before loading the model:
+            - Load the data.
+            - Configure the model.
+        - First double check to ensure that we do have an untrained model:
+            ```
+            print(model.state_dict())
+            ```
+        - Ready to load the model back:
+            - Load the dictionary back using *torch.load()*.
+                ```
+                checkpoint = torch.load('model_checkpoint.pth')
+                ```
+            - Load model and optimizer state dictionaries back using the *load_state_dict()* method.
+                ```
+                model.load_state_dict(checkpoint['model_state_dict'])
+                optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+                ```
+            - Load everything else into their corresponding variables.
+                ```
+                saved_epoch = checkpoint['epoch']
+                saved_losses = checkpoint['loss']
+                saved_val_losses = checkpoint['val_loss']
+                ```
+            - Set train mode to resume training:
+                ```
+                print(model.train())
+                ```
+        
+    - ### Jupyter notebook
+        - [Notebook](../code/Saving_Loading_Models.ipynb) for testing the code discussed in this lesson.
+
+- ## Deploying / Making Predictions
+    - ### Using our model for making predictions
+        - Setting up the stage before actually loading the model
+            - We only need to configure the model
+        - At this point we have an untrained model.
+        - Loading procedure:
+            - Load the dictionary back using *torch.load()*.
+                ```
+                checkpoint = torch.load('model_checkpoint.pth')
+                ```
+            - Load model state dictionary back by using its method *load_state_dict()*.
+                ```
+                model.load_state_dict(checkpoint['model_state_dict'])
+                ```
+        - After recovering our model's state, we can finally use it to make predictions for new inputs.
+        - Never forget to set eval mode:
+            ```
+            model.eval()
+            ```
+        - Since model configuration [V3](../code/model_configuration/v3.py) created a model and sent it automatically to our device, we need to do the same with new inputs.
+            
+    - ### Jupyter notebook
+        - [Notebook](../code/Predictions.ipynb)
+            - N.B. For prediction, only loading model's state_dict is enough. No need to load optimizer's state_dict and other saved variables. Those are needed to resume training.
+    
+    - ### Setting the model's mode
+        - After loading the model, don't forget to set the mode:
+            - **Checkpointing**: *model.train()*
+            - **Deploying/making predictions**: *model.eval()*
+
+- ## Putting It All Together
+    - ### Overall view of the result
+        - Our updated pipeline:
+            - Data preparation: [V2](../code/data_preparation/v2.py)
+            - Model configuration: [V3](../code/model_configuration/v3.py)
+            - Model training: [V5](../code/model_training/v5.py)
+        - This is the general structure for training PyTorch models.
+        - Cyclical Learning Rates:
+            - Only mentioned not explained.
+            - One can refer the article: [Introduction to Cyclical Rates](https://www.datacamp.com/tutorial/cyclical-learning-neural-nets) by [Sayak Paul](https://sayak.dev/about/)
+    
+    - ### Jupyter notebook
+        - [Notebook](../code/Putting_together_part2.ipynb)
+
+- ## Recap
+    - ### General overview
+        - Covered in this chapter:
+            - Writing a higher-order function that builds functions to perform training steps.
+            - Understanding PyTorch's Dataset and TensorDataset clases, implementing its *__ init__*, *__ get_item__*, and *__ len__* methods.
+            - Using PyTorch's *DataLoader* class to generate mini-batches out of a dataset.
+            - Modifying our training loop to incorporate mini-batch gradient descent logic.
+            - Writing a helper function to handle mini-batch inner loop.
+            - Using PyTorch's *random_split* method to generate training and validation datasets.
+            - Writing a higher-order function that builds functions to perform validation steps.
+            - Realizing the importance of including model.eval() inside the validation loop.
+            - Remembering the prupose of *no_grad()* and using it to prevent any kind of gradient computation during validation.
+            - Using *SummaryWriter* to interface with TensorBoard for logging.
+            - Adding a graph representing our model to TensorBoard.
+            - Sending scalars to TensorBoard to track the evolution of training and validation losses.
+            - Saving/checkpointing and loading models to and from disk to allow resuming model training or deployment.
+            - Realizing the importance of setting the mode of the model for checkpointing or deploying the prediction, respectively *train()* or *eval()*.
+    
+    - ### Jupyter notebook
+        - [Notebook](../code/Chapter04.ipynb)
+
+- ## Challenge 3 - Rethinking the Training Loop
+    - ### Challenge
+
+    - ### Jupyter Notebook
+        - [Notebook: Challenge #3 Question](../code/Challenges03_question.ipynb)
+
+- ## Solution Review - Rethinking the Training Loop
+    - ### Solution
+        - [Notebook: Challenge #3 Solution](../code/Challenges03.ipynb)
