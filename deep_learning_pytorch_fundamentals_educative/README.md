@@ -5,6 +5,9 @@ Deep Learning with PyTorch Step-by-Step: Part I - Fundamentals
 - Course Website: https://www.educative.io/courses/deep-learning-pytorch-fundamentals
 - Book's Official github repository: https://github.com/dvgodoy/PyTorchStepByStep
     - Contains Local installation instructions
+- Book's website:
+    - https://pytorchstepbystep.com/
+        - [Jupyter Notebooks](https://pytorchstepbystep.com/#jupyter) available.
 
 Contents
 --------
