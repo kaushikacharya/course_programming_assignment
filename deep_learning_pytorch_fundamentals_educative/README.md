@@ -15,3 +15,4 @@ Contents
 - [Chapter 2: Visualizing Gradient Descent](./notes/Chapter_2.md)
 - [Chapter 3: A Simple Regression Problem](./notes/Chapter_3.md)
 - [Chapter 4: Rethinking the Training Loop](./notes/Chapter_4.md)
+- [Chapter 5: Going Classy](./notes/Chapter_5.md)
