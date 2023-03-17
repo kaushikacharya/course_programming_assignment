@@ -1,5 +1,27 @@
 A Simple Regression Problem
 ===========================
+1. [Spoilers](#spoilers)
+2. [Reviewing the Steps of Gradient Descent](#reviewing-the-steps-of-gradient-descent)
+3. [Linear Regression in Numpy](#linear-regression-in-numpy)
+4. [PyTorch Tensors](#pytorch-tensors)
+5. [Loading Data, Devices and CUDA](#loading-data-devices-and-cuda)
+6. [Creating Parameters](#creating-parameters)
+7. [Quiz](#quiz)
+8. [Autograd](#autograd)
+9. [Updating Parameters](#updating-parameters)
+10. [Dynamic Computation Graphs](#dynamic-computation-graphs)
+11. [Optimizer](#optimizer)
+12. [Loss](#loss)
+13. [Quiz](#quiz-1)
+14. [Model](#model)
+15. [Model Types](#model-types)
+16. [Layers](#layers)
+17. [Putting it All Together](#putting-it-all-together)
+18. [Recap](#recap)
+19. Quiz
+20. [Challenge 2 - A Simple Regression Problem](#challenge-2---a-simple-regression-problem)
+21. [Solution Review: A Simple Regression Problem](#solution-review-a-simple-regression-problem)
+
 
 - Spoilers
   --------
@@ -424,4 +446,7 @@ A Simple Regression Problem
 
   - ### Jupyter notebook
     - [Notebook: Question](../code/Challenges02_question.ipynb)
-    - [Notebook: Answer](../code/Challenges02.ipynb)
+  
+- ## Solution Review: A Simple Regression Problem
+  - ### Solution
+    - [Notebook](../code/Challenges02.ipynb)
