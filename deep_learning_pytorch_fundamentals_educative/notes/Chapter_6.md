@@ -9,6 +9,12 @@
 8. [Imbalanced Dataset](#imbalanced-dataset)
 9. [Model Configuration, Training, and Predictions for Classfication](#model-configuration-training-and-predictions-for-classfication)
 10. [Decision Boundary](#decision-boundary)
+11. [Classification Threshold and Confusion Matrix](#classification-threshold-and-confusion-matrix)
+12. [Metrics](#metrics)
+13. [Trade-offs and Curves](#trade-offs-and-curves)
+14. [Best + Worst Curves and Models](#best--worst-curves-and-models)
+15. [Putting It All Together](#putting-it-all-together)
+16. [Recap](#recap)
 
 ## Spoilers
 - ### What to expect from this chapter
@@ -215,7 +221,7 @@
 ## Imbalanced Dataset
 - ### Introduction to the imbalanced dataset
 - ### The pos_weight argument
-    - To compensate for the imbalance, one can set the weight equals the rstio of negstive to positive examples.
+    - To compensate for the imbalance, one can set the weight equals the ratio of negstive to positive examples.
         - pos_weight = #points in negative class/ #points in positive class.
 - ### Weighted average
     - For weighted average, one needs to do the following
@@ -264,3 +270,127 @@
     - Activation functions:
         - Functions that introduce non-linearity into neurons.
         - Example: Sigmoid
+
+## Classification Threshold and Confusion Matrix
+- ### Using different thresholds for classification
+    - Visualize the probabilities
+        - Contour plot of the probabilities and the decision boundary as a straight line.
+        - Probabilities on a line.
+    - Probability line:
+        - Plot the positive class points below the probability line and negaive class points above the probability line.
+            - This will place the points in different quadrants which reflect the quadrants of confusion matrix.
+
+- ### Confusion matrix
+    - Scikit-Learn's
+        - [confusion matrix](https://scikit-learn.org/stable/modules/generated/sklearn.metrics.confusion_matrix.html)
+        - [confusion matrix's display](https://scikit-learn.org/stable/modules/generated/sklearn.metrics.ConfusionMatrixDisplay.html#sklearn.metrics.ConfusionMatrixDisplay)
+    
+    - Conventions:
+        - There are various conventions to show the confusion matrix.
+        - This course will stick to Scikit-Learn's convention.
+
+## Metrics
+- ### Most commonly used metrics
+    - Lot of metrics are constructed using TN, FP, FN, TN
+    - #### True and false-positive rates
+        - $TPR = TP/(TP + FN)$
+        - TPR also called **recall**.
+        - Example scenario for false negative being really bad:
+            - Machine failed to detect an actual threat.
+        - The trade-off between TPR and FPR
+            - KA: It is a trade-off between FP and FN.
+    
+    - #### Precision and recall
+        - $Recall = TP/(TP + FN)$
+        - $Precision = TP/(TP + FP)$
+        - Trade-off between precision and recall.
+    
+    - #### Accuracy
+        - $Accuracy = (TP + TN)/(TP + TN + FP + FN)$
+        - Higher the accuracy, the better.
+        - For imbalanced dataset, relying on accuracy can be misleading.
+        - Accuracy may be misleading because it does not involve a trade-off with another metric like the above ones.
+
+## Trade-offs and Curves
+- ### Introduction to ROC and PR curves
+    - ROC (Receiver operating characteristic) curve
+        - x axis: False positive rate (FPR)
+        - y axis: True positive rate (TPR)
+    - PR (Precision-recall) curve
+        - x axis: Recall
+        - y axis: Precision
+
+- ### Low threshold
+    - Loose threshold: Since model is not required to be very confident to consider a data point to be positive.
+
+- ### High threshold
+
+- ### ROC and PR curves
+    - Scikit-Learn's
+        - [roc_curve](https://scikit-learn.org/stable/modules/generated/sklearn.metrics.roc_curve.html)
+        - [precision_recall_curve](https://scikit-learn.org/stable/modules/generated/sklearn.metrics.precision_recall_curve.html)
+    - **Doubt**:
+        - KA: Not sure how precision = 1 for the edge case of threshold=1 (i.e. every prediction is negative) for the formula provided in [Metrics](#metrics) lesson.
+            - FP = TP = 0
+            - This leads to zero denominator for the precision metrics calculation.
+        - KA: Scikit-Learn's [precision_score](https://scikit-learn.org/stable/modules/generated/sklearn.metrics.precision_score.html#sklearn.metrics.precision_score) uses the parameter ```zero_dvision``` to handle this case.
+    
+- ### The precision quirk
+    - In general, raising the threshold:
+        - Reduces FP (false positives) => Increases precision
+    - But, along the way, we may lose some of the true positives, which will temporarily reduce precision.
+
+## Best + Worst Curves and Models
+- ### Best and worst curves
+    - **Doubt**:
+        - KA: How is precision=1 for the best precision-recall curve.
+
+- ### Comparing models
+    - Best curve => Best model
+    - Measure [area under curve (auc)](https://scikit-learn.org/stable/modules/generated/sklearn.metrics.auc.html)
+
+- ### Further reading
+    - Scikit-Learn's:
+        - [Receiver Operating Characteristic (ROC)](https://scikit-learn.org/stable/auto_examples/model_selection/plot_roc.html)
+        - [Precision-Recall](https://scikit-learn.org/stable/auto_examples/model_selection/plot_precision_recall.html)
+
+## Putting It All Together
+- ### Overall view of the result
+    - #### Data preparation
+    - #### Model configuration
+    - #### Model training
+    - #### Model evaluation
+
+- ### Jupyter notebook
+    - [Notebook](../code/Putting_together_part4.ipynb)
+
+## Recap
+- ### General overview
+    - We have covered:
+        - Defining a binary classification problem.
+        - Generating and preparing a toy dataset using Scikit-Learn's ```make_moons``` method.
+        - Defining logits as the result of a linear combination of features.
+        - Understanding what odds ratio and log odds ratio are.
+        - Figuring we can interpret logits as log odds ratio.
+        - Mapping logits into probabilities using a sigmoid function.
+        - Defining a logistic regression as a simple neural network with a sigmoid function in the output.
+        - Understanding the binary cross-entropy loss and its PyTorch implementation ```BCELoss```.
+        - Understanding the difference between the ```BCELoss``` and ```BCEWithLogitsLoss```.
+        - Highlighting the importance of choosing the correct combination of the last layer and loss function.
+        - Using PyTorch's loss functions` arguments to handle imbalanced datasets.
+        - Configuring the model, loss function, and optimizer for a classification problem.
+        - Training a model using the ```StepByStep``` class.
+        - Understanding that the validation loss may be smaller than the training loss.
+        - Making predictions and mapping predicted logits to probabilities.
+        - Using a classification threshold to convert probabilities into classes.
+        - Understanding the definition of decision boundary.
+        - Understnading the concept of separability of classes and how it is related to dimensionality.
+        - Exploring different classification thresholds and its effect on the confusion matrix.
+        - Reviewing typical metrics for evaluating classification algorithms like true and false positive rates, precision and recall.
+        - Building ROC and precision-recall curves out of metrics computed for multiple thresholds.
+        - Understanding the reason behind the quirk of losing precision while raising the classification threshold.
+        - Defining the best and worst possible ROC and PR curves.
+        - Using the area under curve to compare different models.
+
+- ### Jupyter notebook
+    - [Notebook](../code/Chapter06.ipynb)
