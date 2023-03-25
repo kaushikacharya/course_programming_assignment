@@ -15,6 +15,9 @@
 14. [Best + Worst Curves and Models](#best--worst-curves-and-models)
 15. [Putting It All Together](#putting-it-all-together)
 16. [Recap](#recap)
+17. [Quiz](#quiz-1)
+18. [Challenge 5 - A Simple Classification Problem](#challenge-5---a-simple-classification-problem)
+19. [Solution Review: A Simple Classification Problem](#solution-review-a-simple-classification-problem)
 
 ## Spoilers
 - ### What to expect from this chapter
@@ -394,3 +397,18 @@
 
 - ### Jupyter notebook
     - [Notebook](../code/Chapter06.ipynb)
+
+## Quiz
+- Q8: Is there trade-off between these two matrices:
+    - One of the option: TPR and Precision
+    - KA: TPR is also called recall. And there's trade off between precision and recall. So IMHO, this option should also be correct.
+
+## Challenge 5 - A Simple Classification Problem
+- ### Challenge
+- ### Jupyter notebook
+    - [Notebook - Question](../code/Challenges05_question.ipynb)
+    - [Notebook - Answer](../code/Challenges05_answer.ipynb)
+
+## Solution Review: A Simple Classification Problem
+- ### Solution
+    - [Notebook](../code/Challenges05.ipynb)
