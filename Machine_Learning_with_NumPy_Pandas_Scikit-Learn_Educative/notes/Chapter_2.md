@@ -4,6 +4,12 @@
 3. [NumPy Basics](#numpy-basics)
 4. [Math](#math)
 5. [Random](#random)
+6. [Indexing](#indexing)
+7. [Filtering](#filtering)
+8. [Statistics](#statistics)
+9. [Aggregation](#aggregation)
+10. [Saving Data](#saving-data)
+11. Quiz
 
 ## Introduction
 - A. Data processing
@@ -111,4 +117,84 @@
 - ### Time to Code!
 
 ## Indexing
+- ### Chapter Goals:
+    - Learn about indexing arrays in NumPy.
+    - Write code for indexing and slicing arrays.
 
+- ### A. Array accessing
+    - Accessing NumPy arrays is quivalent to
+        - Accessing Python lists (in case of 1D array)
+        - Accessing Python list of lists (in case of multi-dimensionsal arrays)
+
+- ### B. Slicing
+
+- ### C. Argmin and argmax
+    - [numpy.argmin](https://numpy.org/doc/stable/reference/generated/numpy.argmin.html)
+    - [numpy.argmax](https://numpy.org/doc/stable/reference/generated/numpy.argmax.html)
+    - Parameter: ```axis```
+        - By default, the index is into the flattened array, otherwise along the specified axis.
+        - ```axis=0```: Finds the index of the min/max row element for each column.
+        - ```axis=1```: Finds the index of the min/max column element for each row.
+        - ```axis=-1```: Applies the function across the last dimension.
+            - For 2D array this is equivalent to ```axis=1```.
+
+- ### Time to Code!
+
+## Filtering
+- ### Chapter Goals
+    - Learn how to filter data in NumPy.
+
+- ### A. Filtering data
+    - ```numpy.nan``` can't be used for any relation operation.
+    - [numpy.isnan](https://numpy.org/doc/stable/reference/generated/numpy.isnan.html)
+    - [numpy.where](https://numpy.org/doc/stable/reference/generated/numpy.where.html)
+
+- ### B. Filtering in NumPy
+    - [Broadcasting](https://numpy.org/doc/stable/user/basics.broadcasting.html)
+
+- ### C. Axis-wise filtering
+    - [numpy.any](https://numpy.org/doc/stable/reference/generated/numpy.any.html)
+    - [numpy.all](https://numpy.org/doc/stable/reference/generated/numpy.all.html)
+
+- ### Time to Code!
+
+## Statistics
+- ### Chapter Goals:
+    - Learn about basic statistical analysis in NumPy.
+
+- ### A. Analysis
+    - [numpy.ndarray.min](https://numpy.org/doc/stable/reference/generated/numpy.ndarray.min.html)
+    - [numpy.ndarray.max](https://numpy.org/doc/stable/reference/generated/numpy.ndarray.max.html)
+
+- ### B. Statistical metrics
+    - [numpy.mean](https://numpy.org/doc/stable/reference/generated/numpy.mean.html)
+    - [numpy.var](https://numpy.org/doc/stable/reference/generated/numpy.var.html)
+    - [numpy.median](https://numpy.org/doc/stable/reference/generated/numpy.median.html)
+    - [List of statistical functions](https://numpy.org/doc/stable/reference/routines.statistics.html)
+
+- ### Time to Code!
+
+## Aggregation
+- ### Chapter Goals
+    - Learn how to aggregate data in NumPy
+
+- ### A. Summation
+    - [numpy.sum](https://numpy.org/doc/stable/reference/generated/numpy.sum.html)
+    - [numpy.cumsum](https://numpy.org/doc/stable/reference/generated/numpy.cumsum.html)
+
+- ### B. Concatenation
+    - [numpy.concatenate](https://numpy.org/doc/stable/reference/generated/numpy.concatenate.html)
+
+- ### Time to Code!
+
+## Saving Data
+- ### Chapter Goals
+    - Learn how to save and load data in NumPy.
+
+- ### A. Saving
+    - [numpy.save](https://numpy.org/doc/stable/reference/generated/numpy.save.html)
+
+- ### B. Loading
+    - [numpy.load](https://numpy.org/doc/stable/reference/generated/numpy.load.html)
+
+- ### Time to Code!
