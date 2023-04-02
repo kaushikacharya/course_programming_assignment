@@ -7,6 +7,7 @@
 6. [Data Imputation](#data-imputation)
 7. [PCA](#pca)
 8. [Labeled Data](#labeled-data)
+9. Quiz
 
 ## Introduction
 - ### A. ML engineering vs. data science
