@@ -9,3 +9,4 @@
 - [Chapter 2: Data Manipulation with NumPy](./notes/Chapter_2.md)
 - [Chapter 3: Data Analysis with pandas](./notes/Chapter_3.md)
 - [Chapter 4: Data Processing with scikit-learn](./notes/Chapter_4.md)
+- [Chapter 5: Data Modeling with scikit-learn](./notes/Chapter_5.md)
