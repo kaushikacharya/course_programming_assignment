@@ -6,6 +6,12 @@
 5. [Bayesian Regression](#bayesian-regression)
 6. [Logistic Regression](#logistic-regression)
 7. [Decision Trees](#decision-trees)
+8. [Training and Testing](#training-and-testing)
+9. [Cross-Validation](#cross-validation)
+10. [Applying CV to Decision Trees](#applying-cv-to-decision-trees)
+11. [Evaluating Models](#evaluating-models)
+12. [Exhaustive Tuning](#exhaustive-tuning)
+13. Quiz
 
 ## Introduction
 - In this chapter:
@@ -144,3 +150,69 @@
             - MAE (Mean absolute error)
 
 - ### Time to Code!
+
+## Training and Testing
+- ### Chapter Goals
+    - Learn about splitting a dataset into training and testing sets.
+
+- ### A. Training and testing sets
+    - In general:
+        - Testing set: Around 10-30% of the original dataset
+        - Training set: Remaining 70-90%
+
+- ### B. Splitting the dataset
+    - Scikit-learn's [model_selection.train_test_split](https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.train_test_split.html#sklearn.model_selection.train_test_split)
+    - ```X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33)```
+    - Parameter: ```shuffle```
+        - This is good practice to remove any systematic orderings in the dataset, which could potentially impact the model into training on the orderings rather than the actual data.
+
+- ### Time to Code!
+
+## Cross-Validation
+- ### Chapter Goals
+    - Learn about the purpose of cross-validation.
+    - Implement a function that applies the K-Fold cross-validation algorithm to a model.
+    
+- ### A. Additional evaluation datasets
+    - [Cross-validation](https://en.wikipedia.org/wiki/Cross-validation_(statistics)) is the solution for original dataset being not large enough.
+    - [K-Fold CV](https://en.wikipedia.org/wiki/Cross-validation_(statistics)#k-fold_cross-validation):
+        - One of the most common algorithms for cross-validation.
+
+- ### B. Scored cross-validation
+    - Scikit-learn's [model_selection.cross_val_score](https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.cross_val_score.html#sklearn.model_selection.cross_val_score)
+    - For classification models, ```cross_val_score``` applies stratified K-Fold.
+        - Each fold will contain approximately the same class distribution as the original dataset.
+    - For large enough datasets, K-Fold cross-validation can be very time consuming.
+        - Better to split into training, validation and testing sets.
+
+## Applying CV to Decision Trees
+- ### Chapter Goals
+    - Apply K-Fold cross-validation to a decision tree.
+
+- ### A. Decision tree depth
+    - For decision trees, we can tune the tree's maximum depth hyperparameter (**max_depth**) by using K-Fold cross-validation.
+
+- ### Time to Code!
+
+## Evaluating Models
+- ### Chapter Goals
+    - Learn how to evaluate regression and classification models.
+
+- ### A. Making predictions
+
+- ### B. Evaluation metrics
+    - Scikit-learn's [metrics](https://scikit-learn.org/stable/modules/model_evaluation.html#common-cases-predefined-values) module
+
+## Exhaustive Tuning
+- ### Chapter Goals
+    - Learn how to use grid search cross-validation for exhaustive hyperparameter tuning.
+
+- ### A. Grid-search cross-validation
+    - Situation:
+        - Application requires us to absolutely obtain the best hyperparameters of a model.
+        - Dataset is small enough.
+    - Grid search cross-validation:
+        - Specify possible values for each hyperparameter.
+        - Search through each possible combination of the hyperparameters.
+        - Return the model with the best combination.
+    - Scikit-learn's [model_selection.GridSearchCV](https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.GridSearchCV.html#sklearn.model_selection.GridSearchCV)
