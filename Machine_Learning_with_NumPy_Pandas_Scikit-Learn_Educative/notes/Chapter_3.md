@@ -91,6 +91,9 @@
 
 - ### B. Merging
     - [pandas.merge](http://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.merge.html)
+    - KA: Additional info
+        - As per [docs](https://pandas.pydata.org/docs/user_guide/merging.html#database-style-dataframe-or-named-series-joining-merging):
+            - ```merge``` is also available as a ```DataFrame``` instance method ```merge()```, with the calling ```DataFrame``` being implicitly considered the left object in the join.
 
 - ### Time to Code!
 
