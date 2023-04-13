@@ -1,7 +1,12 @@
 # Machine Learning with NumPy, pandas, scikit-learn, and More
 
+## About
+This repository contains
+- Course notes
+- Additional resources (collected for better understanding of the concepts)
+
 ## Course Information
-- Course organizer: Educative
+- Course author(s): Adaptilab
 - Course Website: https://www.educative.io/courses/machine-learning-numpy-pandas-scikit-learn
 
 ## Course Contents
@@ -11,3 +16,4 @@
 - [Chapter 4: Data Processing with scikit-learn](./notes/Chapter_4.md)
 - [Chapter 5: Data Modeling with scikit-learn](./notes/Chapter_5.md)
 - [Chapter 6: Clustering with scikit-learn](./notes/Chapter_6.md)
+- [Chapter 7: Gradient Boosting with XGBoost](./notes/Chapter_7.md)
