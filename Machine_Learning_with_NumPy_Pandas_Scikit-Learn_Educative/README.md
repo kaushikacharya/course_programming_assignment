@@ -17,3 +17,4 @@ This repository contains
 - [Chapter 5: Data Modeling with scikit-learn](./notes/Chapter_5.md)
 - [Chapter 6: Clustering with scikit-learn](./notes/Chapter_6.md)
 - [Chapter 7: Gradient Boosting with XGBoost](./notes/Chapter_7.md)
+- [Chapter 8: Deep Learning with TensorFlow](./notes/Chapter_8.md)
