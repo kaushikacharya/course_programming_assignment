@@ -1,5 +1,20 @@
 Visualizing Gradient Descent
 ============================
+1. Spoliers
+2. [Gradient Descent](#gradient-descent)
+3. [Data Generation](#data-generation)
+4. Basic Steps for Using Gradient Descent
+5. [Compute the Loss](#compute-the-loss)
+6. [Computing the Loss Surface](#computing-the-loss-surface)
+7. [Compute the Gradients](#compute-the-gradients)
+8. [Update the Parameters](#update-the-parameters)
+9. [Learning Rate](#learning-rate)
+10. [Scaling the Dataset](#scaling-the-dataset)
+11. [Rinse and Repeat](#rinse-and-repeat)
+12. [Recap](#recap)
+13. Quiz
+14. [Challenge 1 - Visualizing Gradient Descent](#challenge-1---visualizing-gradient-descent)
+15. [Soution Review - Visualizing Gradient Descent](#soution-review---visualizing-gradient-descent)
 
 - Gradient Descent Steps:
   ----------------------
