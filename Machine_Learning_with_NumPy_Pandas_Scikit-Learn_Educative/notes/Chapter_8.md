@@ -5,6 +5,11 @@
 4. [Metrics](#metrics)
 5. [Optimization](#optimization)
 6. [Training](#training)
+7. [Evaluation](#evaluation)
+8. [Linear Limitations](#linear-limitations)
+9. [Hidden Layer](#hidden-layer)
+10. [Multiclass](#multiclass)
+11. [Softmax](#softmax)
 
 ## Introduction
 - ### Chapter Goals
@@ -179,3 +184,107 @@
     - Choosing the batch size is a speed-precision tradeoff.
 
 - ### Time to Code!
+
+## Evaluation
+- ### Chapter Goals
+    - Evaluate model performance on a test set.
+
+- ### A. Evaluating using accuracy
+    - ```accuracy``` metric defined in [Metrics](#metrics) lesson.
+
+- ### B. Different amounts of data
+    - It is good practice to split up a dataset into three sets:
+        - *Training set* (~80% of dataset)
+            - Used for model training and optimization.
+        - *Validation set* (~10% of dataset)
+            - Used to evaluate the model in between training runs, e.g. when tweaking model parameters like batch size.
+        - *Test set* (~10% of dataset)
+            - used to evaluate the final model, usually through some metric.
+
+- ### Time to Code!
+
+## Linear Limitations
+- ### Chapter Goals
+    - Understand the limitations of a single layer perceptron model.
+
+- ### A. Linear decision boundary
+    - Example to illustrate limitation of single layer perceptron
+        - Predict whether 2-D points are inside or outside a circle.
+            - Non-linear decision boundary.
+
+## Hidden Layer
+- ### Chapter Goals
+    - Add a hidden layer to the model's layers.
+    - Understand the purpose of non-linear activations.
+    - Learn about the ReLU activation function.
+
+- ### A. Why a single layer is limited
+    - Equation of the circle boundary:
+        - $x^2 + y^2 = r^2$
+    - This can't be modeled by a single linear combination.
+
+- ### B. Hidden layers
+
+- ### C. Non-linearity
+    - Non-linearities to model is added through activation functions.
+    - The three most common activation functions used in deep learning:
+        - [tanh](https://en.wikipedia.org/wiki/Hyperbolic_function#Tanh)
+        - [ReLU](https://en.wikipedia.org/wiki/Rectifier_(neural_networks))
+        - [sigmoid](https://en.wikipedia.org/wiki/Sigmoid_function)
+
+- ### ReLU
+    - $ReLU(x) = mainx(0,x)$
+    - Shows an example to prove that with enough linear combinations and ReLU activations, a model can learn quadratic transformation.
+        - $f(x) = ReLU(x) + ReLU(-x) + ReLU(2x-2) + ReLU(-2x-2)$
+        - This represents somewhat like the quadratic function, $f(x) = x^2$
+    - What makes ReLU work well in general purpose situations?
+        - Simplicity
+            - Simplicity w.r.t. its gradient, allows it to avoid [vanishing gradient problem](https://en.wikipedia.org/wiki/Vanishing_gradient_problem).
+        - Mapping negative values to 0 helps the model train faster and avoid overfitting.
+
+- ### Time to Code!
+
+## Multiclass
+- ### Chapter Goals
+    - Learn about multiclass classification.
+    - Understand the purpose of multiple hidden layers.
+    - Learn the pros and cons of adding hidden layers.
+
+- ### A. Multiclass classification
+
+- ### B. One-hot
+
+- ### C. Adding hidden layers
+    - Adding an extra hidden layer may decrease the number of training iterations needed for convergence compared to maintaining a single hidden layer.
+    - General rule of thumb:
+        - Usually up to 3 hidden layers.
+            - Unless it is a complicated problem which would more hidden layer.
+                - Example: Google's Alpha Go needed more than a dozen layers.
+
+- ### D. Overfitting
+    - The more hidden layers or neurons a neural network has, the more prone it is to overfitting the training data.
+
+- ### Time to Code!
+
+## Softmax
+- ### Chapter Goals
+    - Update the model to use the softmax function.
+    - Perform multiclass classification.
+
+- ### A. The softmax function
+    - [Softmax function](https://en.wikipedia.org/wiki/Softmax_function)
+        - Generalization of the sigmoid function as we move from binary classification to multiclass classification.
+    - The softmax function takes in a vector of numbers (logits for each class), and converts the numbers to a probability distribution.
+    - Each class's individual probability is based on how large its logit is relative to the sum of all classes's logits.
+    - [tf.nn.softmax](https://www.tensorflow.org/api_docs/python/tf/nn/softmax)
+    - Sigmoid cross entropy for binary classification.
+    - Softmax cross entropy for multiclass classification.
+        - Cross entropy is calculated *for each class* and then averaged at the end.
+
+- ### B. Predictions
+    - [tf.math.argmax](https://www.tensorflow.org/api_docs/python/tf/math/argmax)
+        - To return the index with the maximum probability.
+
+- ### Time to Code!
+    - Softmax cross entropy:
+        - [tf.compat.v1.nn.softmax_cross_entropy_with_logits_v2](https://www.tensorflow.org/api_docs/python/tf/compat/v1/nn/softmax_cross_entropy_with_logits_v2)
