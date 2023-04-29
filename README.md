@@ -4,7 +4,7 @@
 
 |                   Course                                       |Host     |
 | -------------------------------------------------------------- |---------|
-|[Deep Learning with PyTorch Step-by-Step: Part I - Fundamentals](./deep_learning_pytorch_fundamentals_educative/)|Educative|
+|[Deep Learning with PyTorch Step-by-Step: Part I - Fundamentals](./Deep_Learning_Pytorch_Fundamentals_Educative/)|Educative|
 |[Distributed Machine Learning with Apache Spark (CS120x)](https://github.com/kaushikacharya/Distributed_Machine_Learning_with_Apache_Spark_CS120x_edx)|EdX|
 |[Machine Learning](https://github.com/kaushikacharya/ml_class_coursera)|Coursera|
 |[Machine Learning with NumPy, pandas, scikit-learn, and More](./Machine_Learning_with_NumPy_Pandas_Scikit-Learn_Educative/)|Educative|
