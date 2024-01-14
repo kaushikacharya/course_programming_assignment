@@ -21,3 +21,7 @@
 ## Lecture Notes
 
 - [Lecture Notes](https://community.deeplearning.ai/t/generative-ai-for-everyone-lecture-notes/481740)
+
+## Related Courses
+
+- [Generative AI with Large Language Models](https://github.com/kaushikacharya/generative_ai_with_llm)
