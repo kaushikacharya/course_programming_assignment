@@ -79,6 +79,26 @@
 
 - Image generation (diffusion model)
   - Typically ~100 steps for diffusion model.
+- Additional resources (KA)
+  - [Intuitive explanation of Diffusion models from AssemblyAI](https://www.assemblyai.com/blog/how-physics-advanced-generative-ai/#generative-ai-with-thermodynamics)
+    - Thermodynamics can be viewed as the study of randomness.
+    - The likelihood of 50 % of N coins being heads-up compared to 100 % of N coins being heads-up increases (?) exponentially with N.
+    - ?? Intuition behind considering food coloring concentrated in a single drop as 100 % heads-up whereas spread out evenly as 50 % heads-up.
+    - This process is called *diffusion*.
+      - Random motion of food coloring leads to uniform color.
+    - Thermodaynamics: Views atoms as coins.
+    - Diffusion models: Views pixels of images as atoms.
+    - "Random motion" of pixels always leads to "TV static": image equivalent of uniform food coloring.
+    - Different "drops" for Diffusion models correspond to different **types** of images.
+    - Flow diagram describes the reasoning for using diffusion in forward time and diffusion model in reverse time to sample image.
+      - Sampling from the training data distribution directly is hard.
+    - Related Physics concept: [Poisson Flow Generative Models](https://www.assemblyai.com/blog/an-introduction-to-poisson-flow-generative-models/)
+  
+  - [Diffusion Models - Introduction](https://www.assemblyai.com/blog/diffusion-models-for-machine-learning-introduction/)
+    - Advantages over GANs
+      - Does not require adversarial training
+      - Scalability and parallilizability
+    - [Isotropic Gaussian distribution](https://math.stackexchange.com/questions/1991961/gaussian-distribution-is-isotropic)
 
 ### Quiz
 
